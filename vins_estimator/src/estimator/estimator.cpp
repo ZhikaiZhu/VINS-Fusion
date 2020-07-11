@@ -1141,7 +1141,9 @@ void Estimator::optimization()
     {
         MarginalizationInfo *marginalization_info = new MarginalizationInfo();
         vector2double();
-
+        std::set<int> keyframe_poses_idx;
+        keyframe_poses_idx.insert(0);
+        
         if (last_marginalization_info && last_marginalization_info->valid)
         {
             vector<int> drop_set;
@@ -1168,6 +1170,7 @@ void Estimator::optimization()
                                                                            vector<double *>{para_Pose[0], para_SpeedBias[0], para_Pose[1], para_SpeedBias[1]},
                                                                            vector<int>{0, 1});
                 marginalization_info->addResidualBlockInfo(residual_block_info);
+                keyframe_poses_idx.insert(0);
             }
         }
 
@@ -1199,6 +1202,8 @@ void Estimator::optimization()
                                                                                         vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]},
                                                                                         vector<int>{0, 3});
                         marginalization_info->addResidualBlockInfo(residual_block_info);
+                        keyframe_poses_idx.insert(imu_i);
+                        keyframe_poses_idx.insert(imu_j);
                     }
                     if(STEREO && it_per_frame.is_stereo)
                     {
@@ -1211,6 +1216,8 @@ void Estimator::optimization()
                                                                                            vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]},
                                                                                            vector<int>{0, 4});
                             marginalization_info->addResidualBlockInfo(residual_block_info);
+                            keyframe_poses_idx.insert(imu_i);
+                            keyframe_poses_idx.insert(imu_j);
                         }
                         else
                         {
@@ -1226,12 +1233,27 @@ void Estimator::optimization()
             }
         }
 
+        std::vector<long> keyframe_poses;
+        std::vector<double> keyframe_headers;
+        keyframe_poses.reserve(keyframe_poses_idx.size());
+        keyframe_headers.reserve(keyframe_poses_idx.size());
+        for (auto idx : keyframe_poses_idx) {
+            keyframe_poses.push_back(reinterpret_cast<long>(para_Pose[idx]));
+            keyframe_headers.push_back(Headers[idx]);
+        }
+
         TicToc t_pre_margin;
         marginalization_info->preMarginalize();
         ROS_DEBUG("pre marginalization %f ms", t_pre_margin.toc());
-        
+
+        TicToc t_margin_aux;
+        marginalization_info->marginalize_aux(keyframe_poses);  
         TicToc t_margin;
-        marginalization_info->marginalize();
+        // 1. before marginalization, construct the information matrix related to the keyframe as below,
+        // 2. and marginalize all except keyframes from the information matrix, keep a map from keyframe_id/address/header to index in the information matrix, 
+        // 3. then extract nonlinear factors from the marginalized information matrix,
+        // 4. and adding those constraints into pose graph and optimize.
+        marginalization_info->marginalize();  
         ROS_DEBUG("marginalization %f ms", t_margin.toc());
 
         std::unordered_map<long, double *> addr_shift;

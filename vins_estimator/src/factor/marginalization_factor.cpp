@@ -180,6 +180,93 @@ void* ThreadsConstructA(void* threadsstruct)
     return threadsstruct;
 }
 
+void MarginalizationInfo::marginalize_aux(std::vector<long> keyframes) {
+    int pos = 0;
+
+    for (const auto &it : parameter_block_size) {
+        if (find(keyframes.begin(), keyframes.end(), it.first) == keyframes.end() && parameter_block_idx_aux.find(it.first) == parameter_block_idx_aux.end()) {  // variables that are unrelated and not yet added into idx
+            parameter_block_idx_aux[it.first] = pos;
+            pos += localSize(it.second);
+        }
+    }
+    m_aux = pos;
+    std::cout << "Printing the address of the variables w.r.t parameter_block_idx_aux \n";
+    for (const auto &it : parameter_block_size)
+    {
+        if (parameter_block_idx_aux.find(it.first) == parameter_block_idx_aux.end())
+        {
+            std::cout << it.first << " ";
+            parameter_block_idx_aux[it.first] = pos;
+            pos += localSize(it.second);
+        }
+    }
+    std::cout << std::endl;
+
+    n_aux = pos - m_aux;
+
+    if(m_aux == 0)
+    {
+        return;
+    }
+
+    TicToc t_summing;
+    Eigen::MatrixXd A(pos, pos);
+    Eigen::VectorXd b(pos);
+    A.setZero();
+    b.setZero();
+
+    TicToc t_thread_summing;
+    pthread_t tids[NUM_THREADS];
+    ThreadsStruct threadsstruct[NUM_THREADS];
+    int i = 0;
+    for (auto it : factors)
+    {
+        threadsstruct[i].sub_factors.push_back(it);
+        i++;
+        i = i % NUM_THREADS;
+    }
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        TicToc zero_matrix;
+        threadsstruct[i].A = Eigen::MatrixXd::Zero(pos,pos);
+        threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
+        threadsstruct[i].parameter_block_size = parameter_block_size;
+        threadsstruct[i].parameter_block_idx = parameter_block_idx_aux;
+        int ret = pthread_create( &tids[i], NULL, ThreadsConstructA ,(void*)&(threadsstruct[i]));
+        if (ret != 0)
+        {
+            ROS_WARN("pthread_create error");
+            ROS_BREAK();
+        }
+    }
+    for( int i = NUM_THREADS - 1; i >= 0; i--)  
+    {
+        pthread_join( tids[i], NULL ); 
+        A += threadsstruct[i].A;
+        b += threadsstruct[i].b;
+    }
+
+    Eigen::MatrixXd Amm_aux = 0.5 * (A.block(0, 0, m_aux, m_aux) + A.block(0, 0, m_aux, m_aux).transpose());
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes_aux(Amm_aux);
+    Eigen::MatrixXd Amm_inv_aux = saes_aux.eigenvectors() * Eigen::VectorXd((saes_aux.eigenvalues().array() > eps).select(saes_aux.eigenvalues().array().inverse(), 0)).asDiagonal() * saes_aux.eigenvectors().transpose();
+    Eigen::VectorXd bmm_aux = b.segment(0, m_aux);
+    Eigen::MatrixXd Amr_aux = A.block(0, m_aux, m_aux, n_aux);
+    Eigen::MatrixXd Arm_aux = A.block(m_aux, 0, n_aux, m_aux);
+    Eigen::MatrixXd Arr_aux = A.block(m_aux, m_aux, n_aux, n_aux);
+    Eigen::VectorXd brr_aux = b.segment(m_aux, n_aux);
+
+    A = Arr_aux - Arm_aux * Amm_inv_aux * Amr_aux;  // A_aux now represents the marginalization prior connecting only keyframes.
+    b = brr_aux - Arm_aux * Amm_inv_aux * bmm_aux;
+    // for variables at double* v, its idx in the remaining variable should be parameter_block_idx_aux[v] - m_aux
+    std::cout << "the marginalization information matrix related to the keyframes: \n" << A << std::endl;
+    Eigen::FullPivHouseholderQR<Eigen::MatrixXd> qr(A);
+    if (qr.rank() != A.cols()) return;
+    Eigen::MatrixXd cov_old = qr.solve(Eigen::MatrixXd::Identity(n_aux, n_aux));
+    std::cout << "the marginalization covariance prior related to the keyframes: \n" << cov_old << std::endl;
+    // define factors, think how it should behave like pose_graph edges, e.g. relative edges and abs edges, derive factor jacobians
+    // Obtain the Jacobians, the order shall be the same as in parameter_block_idx_aux like J(res.No, parameter_block_idx_aux[keyframe_x.address], size_of_res.No, 6) = d_res.No / d_keyframe_x
+}
+
 void MarginalizationInfo::marginalize()
 {
     int pos = 0;
@@ -285,7 +372,7 @@ void MarginalizationInfo::marginalize()
 
     Eigen::MatrixXd Amm_inv = saes.eigenvectors() * Eigen::VectorXd((saes.eigenvalues().array() > eps).select(saes.eigenvalues().array().inverse(), 0)).asDiagonal() * saes.eigenvectors().transpose();
     //printf("error1: %f\n", (Amm * Amm_inv - Eigen::MatrixXd::Identity(m, m)).sum());
-
+    
     Eigen::VectorXd bmm = b.segment(0, m);
     Eigen::MatrixXd Amr = A.block(0, m, m, n);
     Eigen::MatrixXd Arm = A.block(m, 0, n, m);

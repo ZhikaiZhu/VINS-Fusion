@@ -15,6 +15,7 @@
 #include <pthread.h>
 #include <ceres/ceres.h>
 #include <unordered_map>
+#include <algorithm>
 
 #include "../utility/utility.h"
 #include "../utility/tic_toc.h"
@@ -80,6 +81,9 @@ class MarginalizationInfo
     const double eps = 1e-8;
     bool valid;
 
+    void marginalize_aux(std::vector<long> keyframes);
+    std::unordered_map<long, int> parameter_block_idx_aux;
+    int m_aux, n_aux; // variable pos for the two parts
 };
 
 class MarginalizationFactor : public ceres::CostFunction
