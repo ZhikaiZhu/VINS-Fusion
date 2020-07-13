@@ -103,7 +103,7 @@ class RollPitchFactor : public ceres::SizedCostFunction<2, 7>
     		    jacobian_orientation_i.setZero();
 				Eigen::Matrix<double, 3, 3> jacobian_orientation = zrp.toRotationMatrix() * Utility::skewSymmetric(g_i);
         		Eigen::Matrix<double, 2, 3> reduce(2, 3);
-				reduce << 1.0, 0.0, 0,0,
+				reduce << 1.0, 0.0, 0.0,
 				          0.0, 1.0, 0.0;
 				jacobian_orientation_i.block<2, 3>(0, 3) = sqrt_info * reduce * jacobian_orientation;
     		}

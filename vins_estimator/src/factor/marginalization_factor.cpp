@@ -180,7 +180,7 @@ void* ThreadsConstructA(void* threadsstruct)
     return threadsstruct;
 }
 
-void MarginalizationInfo::marginalize_aux(std::vector<long> keyframes) {
+bool MarginalizationInfo::marginalize_except_keyframes(std::vector<long> keyframes) {
     int pos = 0;
 
     for (const auto &it : parameter_block_size) {
@@ -206,7 +206,7 @@ void MarginalizationInfo::marginalize_aux(std::vector<long> keyframes) {
 
     if(m_aux == 0)
     {
-        return;
+        return false;
     }
 
     TicToc t_summing;
@@ -260,8 +260,8 @@ void MarginalizationInfo::marginalize_aux(std::vector<long> keyframes) {
     // for variables at double* v, its idx in the remaining variable should be parameter_block_idx_aux[v] - m_aux
     std::cout << "the marginalization information matrix related to the keyframes: \n" << A << std::endl;
     Eigen::FullPivHouseholderQR<Eigen::MatrixXd> qr(A);
-    if (qr.rank() != A.cols()) return;
-    Eigen::MatrixXd cov_old = qr.solve(Eigen::MatrixXd::Identity(n_aux, n_aux));
+    if (qr.rank() != A.cols()) return false;
+    cov_old = qr.solve(Eigen::MatrixXd::Identity(n_aux, n_aux));
     std::cout << "the marginalization covariance prior related to the keyframes: \n" << cov_old << std::endl;
     // define factors, think how it should behave like pose_graph edges, e.g. relative edges and abs edges, derive factor jacobians
     // Obtain the Jacobians, the order shall be the same as in parameter_block_idx_aux like J(res.No, parameter_block_idx_aux[keyframe_x.address], size_of_res.No, 6) = d_res.No / d_keyframe_x

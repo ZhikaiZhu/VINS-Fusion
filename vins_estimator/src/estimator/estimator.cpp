@@ -1234,12 +1234,11 @@ void Estimator::optimization()
         }
 
         std::vector<long> keyframe_poses;
-        std::vector<double> keyframe_headers;
+        std::unordered_map<long, int> keyframe_address_to_idx;
         keyframe_poses.reserve(keyframe_poses_idx.size());
-        keyframe_headers.reserve(keyframe_poses_idx.size());
         for (auto idx : keyframe_poses_idx) {
             keyframe_poses.push_back(reinterpret_cast<long>(para_Pose[idx]));
-            keyframe_headers.push_back(Headers[idx]);
+            keyframe_address_to_idx[reinterpret_cast<long>(para_Pose[idx])] = idx;
         }
 
         TicToc t_pre_margin;
@@ -1247,7 +1246,9 @@ void Estimator::optimization()
         ROS_DEBUG("pre marginalization %f ms", t_pre_margin.toc());
 
         TicToc t_margin_aux;
-        marginalization_info->marginalize_aux(keyframe_poses);  
+        if (marginalization_info->marginalize_except_keyframes(keyframe_poses)) {
+            extract_nonlinear_factors(marginalization_info, keyframe_poses, keyframe_address_to_idx);
+        }
         TicToc t_margin;
         // 1. before marginalization, construct the information matrix related to the keyframe as below,
         // 2. and marginalize all except keyframes from the information matrix, keep a map from keyframe_id/address/header to index in the information matrix, 
@@ -1630,4 +1631,8 @@ void Estimator::updateLatestStates()
         tmp_gyrBuf.pop();
     }
     mPropagate.unlock();
+}
+
+void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_info, std::vector<long> keyframes, std::unordered_map<long, int> keyframe_address_to_idx) {
+    
 }

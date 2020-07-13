@@ -83,6 +83,8 @@ class Estimator
     bool IMUAvailable(double t);
     void initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVector);
 
+    void extract_nonlinear_factors(MarginalizationInfo *, std::vector<long>, std::unordered_map<long, int>);
+
     enum SolverFlag
     {
         INITIAL,

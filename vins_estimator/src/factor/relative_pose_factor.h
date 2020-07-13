@@ -40,6 +40,7 @@ class RelativePoseFactor : public ceres::SizedCostFunction<6, 7, 7>
     		    Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> jacobian_pose_i(jacobians[0]);
     		    jacobian_pose_i.setZero();
     		    jacobian_pose_i.block<3, 3>(0, 0) = -Q_i_inverse.toRotationMatrix();
+				jacobian_pose_i.block<3, 3>(0, 3) = Utility::skewSymmetric(P_i_ij);
     		    jacobian_pose_i.block<3, 3>(3, 3) = -(Utility::Qright(Q_ij) * Utility::Qleft(rel_Q.inverse())).bottomRightCorner<3, 3>();
     		    jacobian_pose_i = sqrt_info * jacobian_pose_i;
     		}
@@ -92,7 +93,7 @@ class RelativePoseFactor : public ceres::SizedCostFunction<6, 7, 7>
     	residual = sqrt_info * residual;
 
 	    puts("num");
-	    std::cout << residual.transpose() << std::endl;
+	    std::cout << residual.transpose() << std::endl << std::endl;
 
 	    const double eps = 1e-6;
 	    Eigen::Matrix<double, 6, 6> num_jacobian_i;
@@ -124,7 +125,7 @@ class RelativePoseFactor : public ceres::SizedCostFunction<6, 7, 7>
 
 	        num_jacobian_i.col(k) = (tmp_residual - residual) / eps;
 	    }
-	    std::cout << num_jacobian_i << std::endl;
+	    std::cout << num_jacobian_i << std::endl << std::endl;
 		Eigen::Matrix<double, 6, 6> num_jacobian_j;
 	    for (int k = 0; k < 6; k++)
 	    {
