@@ -258,11 +258,11 @@ bool MarginalizationInfo::marginalize_except_keyframes(std::vector<long> keyfram
     A = Arr_aux - Arm_aux * Amm_inv_aux * Amr_aux;  // A_aux now represents the marginalization prior connecting only keyframes.
     b = brr_aux - Arm_aux * Amm_inv_aux * bmm_aux;
     // for variables at double* v, its idx in the remaining variable should be parameter_block_idx_aux[v] - m_aux
-    std::cout << "the marginalization information matrix related to the keyframes: \n" << A << std::endl;
+    //std::cout << "the marginalization information matrix related to the keyframes: \n" << A << std::endl;
     Eigen::FullPivHouseholderQR<Eigen::MatrixXd> qr(A);
     if (qr.rank() != A.cols()) return false;
     cov_old = qr.solve(Eigen::MatrixXd::Identity(n_aux, n_aux));
-    std::cout << "the marginalization covariance prior related to the keyframes: \n" << cov_old << std::endl;
+    //std::cout << "the marginalization covariance prior related to the keyframes: \n" << cov_old << std::endl;
     // define factors, think how it should behave like pose_graph edges, e.g. relative edges and abs edges, derive factor jacobians
     // Obtain the Jacobians, the order shall be the same as in parameter_block_idx_aux like J(res.No, parameter_block_idx_aux[keyframe_x.address], size_of_res.No, 6) = d_res.No / d_keyframe_x
 }

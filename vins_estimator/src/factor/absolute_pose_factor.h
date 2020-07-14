@@ -7,6 +7,15 @@
 #include "../utility/tic_toc.h"
 #include "../estimator/parameters.h"
 
+struct RPFactor {
+  double Header_i;
+
+  Eigen::Quaterniond zrp;
+  Eigen::Matrix2d cov_inv;
+
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
 class AbsPositionFactor : public ceres::SizedCostFunction<3, 7>
 {
   public:

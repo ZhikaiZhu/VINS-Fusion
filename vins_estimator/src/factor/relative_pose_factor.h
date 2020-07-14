@@ -7,6 +7,16 @@
 #include "../utility/tic_toc.h"
 #include "../estimator/parameters.h"
 
+struct RelPoseFactor {
+  double Header_i, Header_j; // or long
+
+  Eigen::Vector3d rel_P;
+  Eigen::Quaterniond rel_Q;
+  Eigen::Matrix<double, 6, 6> cov_inv;
+
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
 class RelativePoseFactor : public ceres::SizedCostFunction<6, 7, 7>
 {
   public:

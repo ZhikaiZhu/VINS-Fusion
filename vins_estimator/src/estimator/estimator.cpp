@@ -1634,5 +1634,108 @@ void Estimator::updateLatestStates()
 }
 
 void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_info, std::vector<long> keyframes, std::unordered_map<long, int> keyframe_address_to_idx) {
-    
+    long keyframe_to_marg = -1;
+    for (auto kf : keyframes) {
+        if (keyframe_address_to_idx[kf] == 0) {
+            keyframe_to_marg = kf;
+            break;
+        }
+    }
+
+    double** parameters = new double *[2];
+    parameters[0] = para_Pose[0];
+    double *res = new double[6];
+    double **jaco = new double *[2];
+    jaco[0] = new double[6 * 7];
+    jaco[1] = new double[6 * 7];
+
+    Eigen::Vector3d P_i(parameters[0][0], parameters[0][1], parameters[0][2]);
+    Eigen::Quaterniond Q_i(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+
+    double *res_pos = new double[3];
+    double **jaco_pos = new double *[1];
+    jaco_pos[0] = new double[3 * 7];
+
+    double *res_rp = new double[2];
+    double **jaco_rp = new double *[1];
+    jaco_rp[0] = new double[2 * 7];
+
+    double *res_yaw = new double[1];
+    double **jaco_yaw = new double *[1];
+    jaco_yaw[0] = new double[1 * 7];
+
+    Eigen::MatrixXd J_self;
+    J_self.setZero(6, marginalization_info->n_aux);
+
+    std::shared_ptr<AbsPositionFactor> absposf = std::make_shared<AbsPositionFactor>(P_i, Eigen::MatrixXd::Identity(3, 3));
+    Eigen::Map<Eigen::Matrix<double, 3, 7, Eigen::RowMajor>> d_pos_d_T_w_i(jaco_pos[0]);
+    absposf->Evaluate(parameters, res_pos, jaco_pos);
+    J_self.block<3, 6>(0, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_pos_d_T_w_i.leftCols(6);
+
+    Eigen::Vector3d yaw_dir_body = Q_i.inverse() * Eigen::Vector3d::UnitX();
+    std::shared_ptr<YawFactor> yawf = std::make_shared<YawFactor>(yaw_dir_body, Eigen::MatrixXd::Identity(1, 1));
+    Eigen::Map<Eigen::Matrix<double, 1, 7, Eigen::RowMajor>> d_yaw_d_T_w_i(jaco_yaw[0]);
+    yawf->Evaluate(parameters, res_yaw, jaco_yaw);
+    J_self.block<1, 6>(3, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_yaw_d_T_w_i.leftCols(6);
+
+    std::shared_ptr<RollPitchFactor> rollpitchf = std::make_shared<RollPitchFactor>(Q_i, Eigen::MatrixXd::Identity(2, 2));
+    Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> d_rp_d_T_w_i(jaco_rp[0]);
+    rollpitchf->Evaluate(parameters, res_rp, jaco_rp);
+    J_self.block<2, 6>(4, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_rp_d_T_w_i.leftCols(6);
+
+    Eigen::MatrixXd cov_self = J_self * marginalization_info->cov_old * J_self.transpose();
+    RPFactor RollPitchF;
+    RollPitchF.Header_i = Headers[0];
+    RollPitchF.zrp = Q_i;
+    RollPitchF.cov_inv = cov_self.block<2, 2>(4, 4).inverse();
+    rp_factors.emplace_back(RollPitchF);
+
+    std::cout << "constructing roll pitch factors: \n" << "covariance inverse: \n";
+    std::cout << RollPitchF.cov_inv << std::endl;
+
+    for (auto kf : keyframes) {
+        if (kf != keyframe_to_marg) {
+            parameters[1] = para_Pose[keyframe_address_to_idx[kf]];
+            Eigen::Vector3d P_j(parameters[1][0], parameters[1][1], parameters[1][2]);
+            Eigen::Quaterniond Q_j(parameters[1][6], parameters[1][3], parameters[1][4], parameters[1][5]);
+            Eigen::Vector3d P_w_ij = P_j - P_i;
+            Eigen::Quaterniond Q_i_inverse = Q_i.inverse();
+            Eigen::Vector3d P_i_ij = Q_i_inverse * P_w_ij;
+            Eigen::Quaterniond Q_ij = Q_i_inverse * Q_j;
+            std::shared_ptr<RelativePoseFactor> relposef = std::make_shared<RelativePoseFactor>(P_i_ij, Q_ij, Eigen::MatrixXd::Identity(6, 6));
+
+            Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> d_res_d_T_w_i(jaco[0]);
+            Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> d_res_d_T_w_j(jaco[1]);
+            relposef->Evaluate(parameters, res, jaco);
+
+            Eigen::MatrixXd J;
+            J.setZero(6, marginalization_info->n_aux);
+            J.block<6, 6>(0, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_res_d_T_w_i.leftCols(6);
+            J.block<6, 6>(0, marginalization_info->parameter_block_idx_aux[kf] - marginalization_info->m_aux) = d_res_d_T_w_j.leftCols(6);
+            Eigen::MatrixXd cov_new = J * marginalization_info->cov_old * J.transpose();
+            RelPoseFactor RPF;
+            RPF.Header_i = Headers[0];
+            RPF.Header_j = Headers[keyframe_address_to_idx[kf]];
+            RPF.rel_P = P_i_ij;
+            RPF.rel_Q = Q_ij;
+            RPF.cov_inv.setIdentity();
+            cov_new.ldlt().solveInPlace(RPF.cov_inv);
+            rel_pose_factors.emplace_back(RPF);
+            // delete
+            std::cout << "constructing relative pose factors: \n" << "idx j: " << keyframe_address_to_idx[kf] << '\n' << "relative p: \n";
+            std::cout << RPF.rel_P << '\n' << "covariance inverse: \n";
+            std::cout << RPF.cov_inv << std::endl;
+        }
+    }
+    delete[] res;
+    delete[] jaco[0];
+    delete[] jaco[1];
+    delete[] jaco;
+    delete[] parameters;
+    delete[] jaco_pos;
+    delete[] jaco_rp;
+    delete[] jaco_yaw;
+    delete[] res_pos;
+    delete[] res_rp;
+    delete[] res_yaw;
 }

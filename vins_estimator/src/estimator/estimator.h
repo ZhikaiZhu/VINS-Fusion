@@ -39,6 +39,11 @@
 #include "../factor/relative_pose_factor.h"
 #include "../featureTracker/feature_tracker.h"
 
+namespace Eigen {
+
+template <typename T>
+using aligned_vector = std::vector<T, Eigen::aligned_allocator<T>>;
+}
 
 class Estimator
 {
@@ -179,4 +184,7 @@ class Estimator
 
     bool initFirstPoseFlag;
     bool initThreadFlag;
+    
+    Eigen::aligned_vector<RPFactor> rp_factors;
+    Eigen::aligned_vector<RelPoseFactor> rel_pose_factors;
 };
