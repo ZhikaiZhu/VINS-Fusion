@@ -190,17 +190,17 @@ bool MarginalizationInfo::marginalize_except_keyframes(std::vector<long> keyfram
         }
     }
     m_aux = pos;
-    std::cout << "Printing the address of the variables w.r.t parameter_block_idx_aux \n";
+    //std::cout << "Printing the address of the variables w.r.t parameter_block_idx_aux \n";
     for (const auto &it : parameter_block_size)
     {
         if (parameter_block_idx_aux.find(it.first) == parameter_block_idx_aux.end())
         {
-            std::cout << it.first << " ";
+            //std::cout << it.first << " ";
             parameter_block_idx_aux[it.first] = pos;
             pos += localSize(it.second);
         }
     }
-    std::cout << std::endl;
+    //std::cout << std::endl;
 
     n_aux = pos - m_aux;
 

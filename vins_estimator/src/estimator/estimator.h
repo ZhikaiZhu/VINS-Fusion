@@ -187,4 +187,7 @@ class Estimator
     
     Eigen::aligned_vector<RPFactor> rp_factors;
     Eigen::aligned_vector<RelPoseFactor> rel_pose_factors;
+
+    int extraction_count = 0;
+    double extraction_time = 0.0;
 };

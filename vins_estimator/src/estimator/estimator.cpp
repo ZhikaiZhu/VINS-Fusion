@@ -1248,6 +1248,12 @@ void Estimator::optimization()
         TicToc t_margin_aux;
         if (marginalization_info->marginalize_except_keyframes(keyframe_poses)) {
             extract_nonlinear_factors(marginalization_info, keyframe_poses, keyframe_address_to_idx);
+            ++extraction_count;
+            extraction_time += t_margin_aux.toc();
+            std::cout << "-------------------------------------------\n" <<
+            "-------------------------------------------\n" << extraction_time / extraction_count <<
+            "-------------------------------------------\n" <<
+            "-------------------------------------------\n";
         }
         TicToc t_margin;
         // 1. before marginalization, construct the information matrix related to the keyframe as below,
@@ -1699,8 +1705,14 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_i
     RollPitchF.cov_inv = cov_self.block<2, 2>(4, 4).inverse();
     rp_factors.emplace_back(RollPitchF);
 
-    std::cout << "constructing roll pitch factors: \n" << "covariance inverse: \n";
-    std::cout << RollPitchF.cov_inv << std::endl;
+    // std::cout << "constructing roll pitch factors: \n" << "covariance inverse: \n";
+    // std::cout << RollPitchF.cov_inv << std::endl;
+
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            nf.cov_rp[i * 2 + j] = RollPitchF.cov_inv(i, j);
+        }
+    }
 
     for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 2; ++j) {
@@ -1737,10 +1749,10 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_i
             RPF.cov_inv.setIdentity();
             cov_new.ldlt().solveInPlace(RPF.cov_inv);
             rel_pose_factors.emplace_back(RPF);
-            std::cout << "constructing relative pose factors: \n" << "idx j: " << keyframe_address_to_idx[kf] << '\n' << "relative p: \n";
-            std::cout << RPF.rel_P << '\n' << "covariance inverse: \n";
-            std::cout << RPF.cov_inv << std::endl;
-
+            // std::cout << "constructing relative pose factors: \n" << "idx j: " << keyframe_address_to_idx[kf] << '\n' << "relative p: \n";
+            // std::cout << RPF.rel_P << '\n' << "covariance inverse: \n";
+            // std::cout << RPF.cov_inv << std::endl;
+            rel_odom.header.stamp = ros::Time(RPF.Header_j);
             rel_odom.pose.pose.position.x = P_i_ij.x();
             rel_odom.pose.pose.position.y = P_i_ij.y();
             rel_odom.pose.pose.position.z = P_i_ij.z();
