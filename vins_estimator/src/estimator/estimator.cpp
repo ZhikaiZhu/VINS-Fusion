@@ -1634,6 +1634,10 @@ void Estimator::updateLatestStates()
 }
 
 void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_info, std::vector<long> keyframes, std::unordered_map<long, int> keyframe_address_to_idx) {
+    vins::NonlinearFactor nf;
+    nf.current_keyframe.stamp = ros::Time(Headers[0]);
+    nf.current_keyframe.frame_id = "world";
+    
     long keyframe_to_marg = -1;
     for (auto kf : keyframes) {
         if (keyframe_address_to_idx[kf] == 0) {
@@ -1651,6 +1655,11 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_i
 
     Eigen::Vector3d P_i(parameters[0][0], parameters[0][1], parameters[0][2]);
     Eigen::Quaterniond Q_i(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+
+    nf.zrp.x = Q_i.x();
+    nf.zrp.y = Q_i.y();
+    nf.zrp.z = Q_i.z();
+    nf.zrp.w = Q_i.w();
 
     double *res_pos = new double[3];
     double **jaco_pos = new double *[1];
@@ -1693,8 +1702,15 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_i
     std::cout << "constructing roll pitch factors: \n" << "covariance inverse: \n";
     std::cout << RollPitchF.cov_inv << std::endl;
 
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            nf.cov_rp[i * 2 + j] = RollPitchF.cov_inv(i, j);
+        }
+    }
+
     for (auto kf : keyframes) {
         if (kf != keyframe_to_marg) {
+            nav_msgs::Odometry rel_odom;
             parameters[1] = para_Pose[keyframe_address_to_idx[kf]];
             Eigen::Vector3d P_j(parameters[1][0], parameters[1][1], parameters[1][2]);
             Eigen::Quaterniond Q_j(parameters[1][6], parameters[1][3], parameters[1][4], parameters[1][5]);
@@ -1721,12 +1737,27 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_i
             RPF.cov_inv.setIdentity();
             cov_new.ldlt().solveInPlace(RPF.cov_inv);
             rel_pose_factors.emplace_back(RPF);
-            // delete
             std::cout << "constructing relative pose factors: \n" << "idx j: " << keyframe_address_to_idx[kf] << '\n' << "relative p: \n";
             std::cout << RPF.rel_P << '\n' << "covariance inverse: \n";
             std::cout << RPF.cov_inv << std::endl;
+
+            rel_odom.pose.pose.position.x = P_i_ij.x();
+            rel_odom.pose.pose.position.y = P_i_ij.y();
+            rel_odom.pose.pose.position.z = P_i_ij.z();
+            rel_odom.pose.pose.orientation.x = Q_ij.x();
+            rel_odom.pose.pose.orientation.y = Q_ij.y();
+            rel_odom.pose.pose.orientation.z = Q_ij.z();
+            rel_odom.pose.pose.orientation.w = Q_ij.w();
+            
+            for (int i = 0; i < 6; ++i) {
+                for (int j = 0; j < 6; ++j) {
+                    rel_odom.pose.covariance[i * 6 + j] = RPF.cov_inv(i, j);
+                }
+            }
+            nf.related_keyframes.push_back(rel_odom);
         }
-    }
+    }            
+    // delete
     delete[] res;
     delete[] jaco[0];
     delete[] jaco[1];
@@ -1738,4 +1769,5 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_i
     delete[] res_pos;
     delete[] res_rp;
     delete[] res_yaw;
+    pub_nfr.publish(nf);
 }

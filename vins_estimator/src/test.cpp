@@ -24,6 +24,7 @@
 #include <opencv2/opencv.hpp>
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
+#include "vins/NonlinearFactor.h"
 
 std::random_device rd{};
 std::mt19937 gen{rd()};
@@ -33,6 +34,22 @@ std::normal_distribution<> orientation_dist{0, 10.0};
 
 int main(int argc, char **argv)
 {
+    ros::init(argc, argv, "vins_estimator");
+    ros::NodeHandle n("~");
+    ros::Publisher nf_pub =  n.advertise<vins::NonlinearFactor>("NonlinearFactor", 1000);
+    ros::Rate loop_rate(1);
+
+    while (ros::ok()) {
+        
+        vins::NonlinearFactor nf;
+
+        nf_pub.publish(nf);
+        ROS_INFO("Publishing NonlinearFactor");
+
+        loop_rate.sleep();
+
+    }
+    
     double** para_Pose = new double *[2];
     para_Pose[0] = new double[7];
     para_Pose[1] = new double[7];
