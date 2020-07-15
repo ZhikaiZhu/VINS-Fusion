@@ -1,0 +1,45 @@
+---------- RMSE result for testing VINS-Fusion with EuRoC dataset ----------
+
+V1_01_easy:
+4DoF(Stereo + IMU): 0.083412
+6DoF(Stereo): 		0.242046
+
+V1_02_medium:
+4DoF(Stereo + IMU): 0.063867
+6DoF(Stereo): 		0.163855
+
+V1_03_difficult:
+4DoF(Stereo + IMU): 0.089576
+6DoF(Stereo): 		2.571753
+
+V2_01_easy:
+4DoF(Stereo + IMU): 0.054494
+6DoF(Stereo): 		0.078929
+
+V2_02_medium:
+4DoF(Stereo + IMU): 0.087320
+6DoF(Stereo): 		0.183229
+
+V2_03_difficult:
+4DoF(Stereo + IMU): 0.113263
+6DoF(Stereo): 		15441601
+
+MH_01_easy:
+4DoF(Stereo + IMU): 0.172386
+6DoF(Stereo): 		0.178571
+
+MH_02_easy:
+4DoF(Stereo + IMU): 0.154161
+6DoF(Stereo): 		0.255324
+
+MH_03_medium:
+4DoF(Stereo + IMU): 0.130423
+6DoF(Stereo): 		0.172888
+
+MH_04_difficult:
+4DoF(Stereo + IMU): 0.271489
+6DoF(Stereo): 		0.427298
+
+MH_05_difficult:
+4DoF(Stereo + IMU): 0.292480
+6DoF(Stereo): 		0.359070
