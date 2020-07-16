@@ -254,9 +254,9 @@ bool MarginalizationInfo::marginalize_except_keyframes(std::vector<long> keyfram
     Eigen::MatrixXd Arm_aux = A.block(m_aux, 0, n_aux, m_aux);
     Eigen::MatrixXd Arr_aux = A.block(m_aux, m_aux, n_aux, n_aux);
     Eigen::VectorXd brr_aux = b.segment(m_aux, n_aux);
-
-    A = Arr_aux - Arm_aux * Amm_inv_aux * Amr_aux;  // A_aux now represents the marginalization prior connecting only keyframes.
-    b = brr_aux - Arm_aux * Amm_inv_aux * bmm_aux;
+    Eigen::MatrixXd A_tmp = Arm_aux * Amm_inv_aux;
+    A = Arr_aux - A_tmp * Amr_aux;  // A now represents the marginalization prior connecting only keyframes.
+    b = brr_aux - A_tmp * bmm_aux;
     // for variables at double* v, its idx in the remaining variable should be parameter_block_idx_aux[v] - m_aux
     //std::cout << "the marginalization information matrix related to the keyframes: \n" << A << std::endl;
     Eigen::FullPivHouseholderQR<Eigen::MatrixXd> qr(A);
