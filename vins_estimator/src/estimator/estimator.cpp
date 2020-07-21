@@ -1234,6 +1234,9 @@ void Estimator::optimization()
         TicToc t_margin;
         marginalization_info->marginalize();
         ROS_DEBUG("marginalization %f ms", t_margin.toc());
+        ++marg_count;
+        marg_time += t_margin.toc();
+        printf("actual marginalization costs with improvement: %f \n", marg_time / marg_count);
 
         std::unordered_map<long, double *> addr_shift;
         for (int i = 1; i <= WINDOW_SIZE; i++)
@@ -1253,7 +1256,11 @@ void Estimator::optimization()
             delete last_marginalization_info;
         last_marginalization_info = marginalization_info;
         last_marginalization_parameter_blocks = parameter_blocks;
-        
+
+        // time test
+        ++whole_marg_count;
+        whole_marg_time += t_whole_marginalization.toc();
+        printf("whole marginalization costs: %f \n", whole_marg_time / whole_marg_count);
     }
     else
     {
@@ -1290,6 +1297,9 @@ void Estimator::optimization()
             ROS_DEBUG("begin marginalization");
             marginalization_info->marginalize();
             ROS_DEBUG("end marginalization, %f ms", t_margin.toc());
+            ++marg_count;
+            marg_time += t_margin.toc();
+            printf("actual marginalization costs with improvement: %f \n", marg_time / marg_count);
             
             std::unordered_map<long, double *> addr_shift;
             for (int i = 0; i <= WINDOW_SIZE; i++)
@@ -1321,10 +1331,17 @@ void Estimator::optimization()
             last_marginalization_info = marginalization_info;
             last_marginalization_parameter_blocks = parameter_blocks;
             
+            // time test
+            ++whole_marg_count;
+            whole_marg_time += t_whole_marginalization.toc();
+            printf("whole marginalization costs: %f \n", whole_marg_time / whole_marg_count);
         }
     }
     //printf("whole marginalization costs: %f \n", t_whole_marginalization.toc());
     //printf("whole time for ceres: %f \n", t_whole.toc());
+    ++whole_count;
+    whole_time += t_whole.toc();
+    printf("whole time for ceres: %f \n", whole_time / whole_count);
 }
 
 void Estimator::slideWindow()

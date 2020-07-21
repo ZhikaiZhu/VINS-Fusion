@@ -34,7 +34,15 @@
 #include "../factor/projectionTwoFrameOneCamFactor.h"
 #include "../factor/projectionTwoFrameTwoCamFactor.h"
 #include "../factor/projectionOneFrameTwoCamFactor.h"
+#include "../factor/absolute_pose_factor.h"
+#include "../factor/relative_pose_factor.h"
 #include "../featureTracker/feature_tracker.h"
+
+namespace Eigen
+{
+    template<typename T>
+    using aligned_vector = std::vector<T, Eigen::aligned_allocator<T>>;
+}
 
 
 class Estimator
@@ -174,4 +182,15 @@ class Estimator
 
     bool initFirstPoseFlag;
     bool initThreadFlag;
+
+    Eigen::aligned_allocator<RPFactor> rp_factors;
+    Eigen::aligned_allocator<RelPoseFactor> rel_pose_factors;
+
+    // time record
+    int whole_marg_count = 0;
+    double whole_marg_time = 0.0;
+    int marg_count = 0;
+    double marg_time = 0.0;
+    int whole_count = 0;
+    double whole_time = 0.0;
 };
