@@ -104,6 +104,7 @@ void MarginalizationInfo::addResidualBlockInfo(ResidualBlockInfo *residual_block
 
     for (int i = 0; i < static_cast<int>(residual_block_info->parameter_blocks.size()); i++)
     {
+        // 需要优化的变量
         double *addr = parameter_blocks[i];
         int size = parameter_block_sizes[i];
         parameter_block_size[reinterpret_cast<long>(addr)] = size;
@@ -111,6 +112,7 @@ void MarginalizationInfo::addResidualBlockInfo(ResidualBlockInfo *residual_block
 
     for (int i = 0; i < static_cast<int>(residual_block_info->drop_set.size()); i++)
     {
+        // 待边缘化的变量
         double *addr = parameter_blocks[residual_block_info->drop_set[i]];
         parameter_block_idx[reinterpret_cast<long>(addr)] = 0;
     }
@@ -120,12 +122,12 @@ void MarginalizationInfo::preMarginalize()
 {
     for (auto it : factors)
     {
-        it->Evaluate();
+        it->Evaluate(); //利用多态性分别计算所有状态变量构成的残差和雅克比矩阵
 
         std::vector<int> block_sizes = it->cost_function->parameter_block_sizes();
         for (int i = 0; i < static_cast<int>(block_sizes.size()); i++)
         {
-            long addr = reinterpret_cast<long>(it->parameter_blocks[i]);
+            long addr = reinterpret_cast<long>(it->parameter_blocks[i]); //优化变量的地址
             int size = block_sizes[i];
             if (parameter_block_data.find(addr) == parameter_block_data.end())
             {
@@ -189,7 +191,7 @@ void MarginalizationInfo::marginalize()
         pos += localSize(parameter_block_size[it.first]);
     }
 
-    m = pos;
+    m = pos; //需要marg掉的变量个数
 
     for (const auto &it : parameter_block_size)
     {
@@ -200,7 +202,7 @@ void MarginalizationInfo::marginalize()
         }
     }
 
-    n = pos - m;
+    n = pos - m; //要保留下来的变量个数
     //ROS_INFO("marginalization, pos: %d, m: %d, n: %d, size: %d", pos, m, n, (int)parameter_block_idx.size());
     if(m == 0)
     {
@@ -209,6 +211,7 @@ void MarginalizationInfo::marginalize()
         return;
     }
 
+    //通过上面的操作就会将所有的优化变量进行一个伪排序，待marg的优化变量的idx为0，其他的和起所在的位置相关
     TicToc t_summing;
     Eigen::MatrixXd A(pos, pos);
     Eigen::VectorXd b(pos);
@@ -291,8 +294,9 @@ void MarginalizationInfo::marginalize()
     Eigen::MatrixXd Arm = A.block(m, 0, n, m);
     Eigen::MatrixXd Arr = A.block(m, m, n, n);
     Eigen::VectorXd brr = b.segment(m, n);
-    A = Arr - Arm * Amm_inv * Amr;
-    b = brr - Arm * Amm_inv * bmm;
+    Eigen::MatrixXd tmp = Arm * Amm_inv;
+    A = Arr - tmp * Amr;
+    b = brr - tmp * bmm;
 
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(A);
     Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array(), 0));
