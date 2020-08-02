@@ -540,6 +540,14 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         if(!USE_IMU)
             f_manager.initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
         f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
+
+        // Adding prior to make information matrix observable
+        if (add_prior_flag == true)
+        {
+            addPrior();
+            add_prior_flag = false;
+        } 
+
         optimization();
         set<int> removeIndex;
         outliersRejection(removeIndex);
@@ -1141,6 +1149,8 @@ void Estimator::optimization()
     {
         MarginalizationInfo *marginalization_info = new MarginalizationInfo();
         vector2double();
+        std::set<int> keyframe_poses_idx;
+        keyframe_poses_idx.insert(0);
 
         if (last_marginalization_info && last_marginalization_info->valid)
         {
@@ -1169,6 +1179,7 @@ void Estimator::optimization()
                                                                            vector<double *>{para_Pose[0], para_SpeedBias[0], para_Pose[1], para_SpeedBias[1]},
                                                                            vector<int>{0, 1});
                 marginalization_info->addResidualBlockInfo(residual_block_info);
+                keyframe_poses_idx.insert(0);
             }
         }
 
@@ -1200,6 +1211,8 @@ void Estimator::optimization()
                                                                                         vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]},
                                                                                         vector<int>{0, 3});
                         marginalization_info->addResidualBlockInfo(residual_block_info);
+                        keyframe_poses_idx.insert(imu_i);
+                        keyframe_poses_idx.insert(imu_j);
                     }
                     if(STEREO && it_per_frame.is_stereo)
                     {
@@ -1212,6 +1225,8 @@ void Estimator::optimization()
                                                                                            vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]},
                                                                                            vector<int>{0, 4});
                             marginalization_info->addResidualBlockInfo(residual_block_info);
+                            keyframe_poses_idx.insert(imu_i);
+                            keyframe_poses_idx.insert(imu_j);
                         }
                         else
                         {
@@ -1227,10 +1242,22 @@ void Estimator::optimization()
             }
         }
 
+        std::vector<long> keyframe_poses;
+        std::unordered_map<long, int> keyframe_addr_to_idx;
+        keyframe_poses.reserve(keyframe_poses_idx.size());
+        for (const auto idx: keyframe_poses_idx)
+        {
+            keyframe_poses.emplace_back(reinterpret_cast<long>(para_Pose[idx]));
+            keyframe_addr_to_idx[reinterpret_cast<long>(para_Pose[idx])] = idx;
+        }
+
         TicToc t_pre_margin;
         marginalization_info->preMarginalize();
         ROS_DEBUG("pre marginalization %f ms", t_pre_margin.toc());
         
+        TicToc t_margin_aux;
+        marginalization_info->marginalize_except_keyframes(keyframe_poses);
+
         TicToc t_margin;
         marginalization_info->marginalize();
         ROS_DEBUG("marginalization %f ms", t_margin.toc());
@@ -1238,6 +1265,7 @@ void Estimator::optimization()
         marg_time += t_margin.toc();
         printf("actual marginalization costs with improvement: %f \n", marg_time / marg_count);
 
+        // 调整参数块在下一次窗口中对应的位置(往前移一格)，注意这里是指针，后面slideWindow中会赋新值，这里只是提前占座
         std::unordered_map<long, double *> addr_shift;
         for (int i = 1; i <= WINDOW_SIZE; i++)
         {
@@ -1262,12 +1290,14 @@ void Estimator::optimization()
         whole_marg_time += t_whole_marginalization.toc();
         printf("whole marginalization costs: %f \n", whole_marg_time / whole_marg_count);
     }
+    //如果次新帧不是关键帧
     else
     {
         if (last_marginalization_info &&
             std::count(std::begin(last_marginalization_parameter_blocks), std::end(last_marginalization_parameter_blocks), para_Pose[WINDOW_SIZE - 1]))
         {
 
+            // 保留次新帧的IMU测量，丢弃该帧的视觉测量，将上一次先验残差项传递给marginalization_info
             MarginalizationInfo *marginalization_info = new MarginalizationInfo();
             vector2double();
             if (last_marginalization_info && last_marginalization_info->valid)
@@ -1301,6 +1331,7 @@ void Estimator::optimization()
             marg_time += t_margin.toc();
             printf("actual marginalization costs with improvement: %f \n", marg_time / marg_count);
             
+            // 调整参数块在下一次窗口中对应的位置(去掉次新帧)
             std::unordered_map<long, double *> addr_shift;
             for (int i = 0; i <= WINDOW_SIZE; i++)
             {
@@ -1626,4 +1657,43 @@ void Estimator::updateLatestStates()
         tmp_gyrBuf.pop();
     }
     mPropagate.unlock();
+}
+
+void Estimator::addPrior()
+{
+    const double cov_inv = 1e8;
+    int size = 7;
+    
+    MarginalizationInfo *marginalization_info = new MarginalizationInfo();
+    vector2double();
+
+    Eigen::Quaterniond Q(para_Pose[WINDOW_SIZE][6], para_Pose[WINDOW_SIZE][3], para_Pose[WINDOW_SIZE][4], para_Pose[WINDOW_SIZE][5]);
+
+    double** jaco = new double* [1];
+    jaco[0] = new double[6 * 6];
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> jacobian(jaco[0]);
+
+    // change the ypr variables in information matrix from global to local
+    jacobian.setZero();
+    jacobian.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity() * sqrt(cov_inv);
+    jacobian.block<3, 3>(3, 3) = sqrt(cov_inv) * Eigen::Matrix<double, 3, 3>::Identity() * Q.toRotationMatrix();
+    marginalization_info->linearized_jacobians = jacobian;
+    marginalization_info->linearized_residuals = Eigen::Matrix<double, 6, 1>::Zero();
+    
+    marginalization_info->n = 6;
+    marginalization_info->m = 0;
+
+    marginalization_info->keep_block_size.clear();
+    marginalization_info->keep_block_idx.clear();
+    marginalization_info->keep_block_data.clear();
+    marginalization_info->keep_block_size.push_back(size);
+    marginalization_info->keep_block_idx.push_back(0);
+    marginalization_info->keep_block_data.push_back(para_Pose[WINDOW_SIZE]);
+    
+    vector<double *> parameter_blocks = marginalization_info->keep_block_data;
+
+    if (last_marginalization_info)
+        delete last_marginalization_info;
+    last_marginalization_info = marginalization_info;
+    last_marginalization_parameter_blocks = parameter_blocks;
 }

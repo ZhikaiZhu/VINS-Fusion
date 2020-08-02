@@ -19,6 +19,7 @@
 #include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include <math.h>
 
 #include "parameters.h"
 #include "feature_manager.h"
@@ -185,6 +186,10 @@ class Estimator
 
     Eigen::aligned_allocator<RPFactor> rp_factors;
     Eigen::aligned_allocator<RelPoseFactor> rel_pose_factors;
+
+    // add prior information
+    bool add_prior_flag = true;
+    void addPrior();
 
     // time record
     int whole_marg_count = 0;
