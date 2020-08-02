@@ -21,6 +21,7 @@
 
 const int NUM_THREADS = 4;
 
+
 struct ResidualBlockInfo
 {
     ResidualBlockInfo(ceres::CostFunction *_cost_function, ceres::LossFunction *_loss_function, std::vector<double *> _parameter_blocks, std::vector<int> _drop_set)
@@ -83,6 +84,12 @@ class MarginalizationInfo
     const double eps = 1e-8;
     bool valid;
 
+    // nfr variables
+    bool marginalize_except_keyframes(std::vector<long> keyframes);
+    std::unordered_map<long, int> parameter_block_idx_aux;
+    int m_aux, n_aux;
+    Eigen::MatrixXd cov_old;
+    
 };
 
 // 先验残差

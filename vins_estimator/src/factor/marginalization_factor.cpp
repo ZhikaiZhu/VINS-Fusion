@@ -9,6 +9,10 @@
 
 #include "marginalization_factor.h"
 
+// the rank of information matrix test
+int cnt_sum_1 = 0, cnt_equall_1 = 0;
+int cnt_sum_2 = 0, cnt_equall_2 = 0;
+
 void ResidualBlockInfo::Evaluate()
 {
     residuals.resize(cost_function->num_residuals());
@@ -182,6 +186,109 @@ void* ThreadsConstructA(void* threadsstruct)
     return threadsstruct;
 }
 
+bool MarginalizationInfo::marginalize_except_keyframes(std::vector<long> keyframes)
+{
+    int pos = 0;
+    for (const auto &it: parameter_block_size)
+    {
+        if (find(keyframes.begin(), keyframes.end(), it.first) == keyframes.end() && parameter_block_idx_aux.find(it.first) == parameter_block_idx_aux.end())
+        {
+            parameter_block_idx_aux[it.first] = pos;
+            pos += localSize(it.second);
+        }
+    }
+
+    m_aux = pos;
+
+    for (const auto &it: parameter_block_size)
+    {
+        if (parameter_block_idx_aux.find(it.first) == parameter_block_idx_aux.end())
+        {
+            parameter_block_idx_aux[it.first] = pos;
+            pos += localSize(it.second);
+        }
+    }
+
+    n_aux = pos - m_aux;
+
+    if (m_aux == 0)
+    {
+        return false;
+    }
+
+    //通过上面的操作就会将所有的优化变量进行一个伪排序，待marg的优化变量的idx为0，其他的和起所在的位置相关
+    TicToc t_summing;
+    Eigen::MatrixXd A(pos, pos);
+    Eigen::VectorXd b(pos);
+    A.setZero();
+    b.setZero();
+
+    TicToc t_thread_summing;
+    pthread_t tids[NUM_THREADS];
+    ThreadsStruct threadsstruct[NUM_THREADS];
+    int i = 0;
+    for (auto it : factors)
+    {
+        threadsstruct[i].sub_factors.push_back(it);
+        i++;
+        i = i % NUM_THREADS;
+    }
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        TicToc zero_matrix;
+        threadsstruct[i].A = Eigen::MatrixXd::Zero(pos,pos);
+        threadsstruct[i].b = Eigen::VectorXd::Zero(pos);
+        threadsstruct[i].parameter_block_size = parameter_block_size;
+        threadsstruct[i].parameter_block_idx = parameter_block_idx_aux;
+        int ret = pthread_create( &tids[i], NULL, ThreadsConstructA, (void*)&(threadsstruct[i]));
+        if (ret != 0)
+        {
+            ROS_WARN("pthread_create error");
+            ROS_BREAK();
+        }
+    }
+    for( int i = NUM_THREADS - 1; i >= 0; i--)  
+    {
+        pthread_join( tids[i], NULL ); 
+        A += threadsstruct[i].A;
+        b += threadsstruct[i].b;
+    }
+  
+    //TODO
+    Eigen::MatrixXd Amm_aux = 0.5 * (A.block(0, 0, m_aux, m_aux) + A.block(0, 0, m_aux, m_aux).transpose());
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes_aux(Amm_aux);
+    Eigen::MatrixXd Amm_inv_aux = saes_aux.eigenvectors() * Eigen::VectorXd((saes_aux.eigenvalues().array() > eps).select(saes_aux.eigenvalues().array().inverse(), 0)).asDiagonal() * saes_aux.eigenvectors().transpose();
+    //printf("error1: %f\n", (Amm * Amm_inv - Eigen::MatrixXd::Identity(m, m)).sum());
+
+    Eigen::VectorXd bmm_aux = b.segment(0, m_aux);
+    Eigen::MatrixXd Amr_aux = A.block(0, m_aux, m_aux, n_aux);
+    Eigen::MatrixXd Arm_aux = A.block(m_aux, 0, n_aux, m_aux);
+    Eigen::MatrixXd Arr_aux = A.block(m_aux, m_aux, n_aux, n_aux);
+    Eigen::VectorXd brr_aux = b.segment(m_aux, n_aux);
+    Eigen::MatrixXd tmp = Arm_aux * Amm_inv_aux;
+    A = Arr_aux - tmp * Amr_aux;  // A now represents the marginalization prior connecting only keyframes.
+    b = brr_aux - tmp * bmm_aux;
+
+    //std::cout << "the marginalization information matrix related to the keyframes: \n" << A << std::endl;
+    Eigen::FullPivHouseholderQR<Eigen::MatrixXd> qr(A);
+    ++cnt_sum_1;
+    //std::cout << "The rank of information matrix A is: " << qr.rank() << std::endl;
+    //std::cout << "The column number of A is: " << A.cols() << std::endl; 
+    if (qr.rank() == A.cols()) 
+    {
+        ++cnt_equall_1;
+    }
+    else
+    {
+        return false;
+    }
+    std::cout << "the percentage of full rank of information matrix in marginalization_except_keyframes is: " << std::endl; 
+    std::cout << cnt_equall_1 << "/" << cnt_sum_1 << " = " << double(cnt_equall_1 / cnt_sum_1) << std::endl;
+    cov_old = qr.solve(Eigen::MatrixXd::Identity(n_aux, n_aux));
+
+    return true;
+}
+
 void MarginalizationInfo::marginalize()
 {
     int pos = 0;
@@ -307,6 +414,16 @@ void MarginalizationInfo::marginalize()
 
     linearized_jacobians = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
     linearized_residuals = S_inv_sqrt.asDiagonal() * saes2.eigenvectors().transpose() * b;
+
+    // test for full rank
+    Eigen::FullPivHouseholderQR<Eigen::MatrixXd> qr(A);
+    ++cnt_sum_2;
+    if (qr.rank() == A.cols()) 
+    {
+        ++cnt_equall_2;
+    }
+    std::cout << "the percentage of full rank of information matrix in marginalization is: " << std::endl; 
+    std::cout << cnt_equall_2 << "/" << cnt_sum_2 << " = " << double(cnt_equall_2 / cnt_sum_2) << std::endl;
     //std::cout << A << std::endl
     //          << std::endl;
     //std::cout << linearized_jacobians << std::endl;
@@ -347,6 +464,13 @@ MarginalizationFactor::MarginalizationFactor(MarginalizationInfo* _marginalizati
     //printf("residual size: %d, %d\n", cnt, n);
     set_num_residuals(marginalization_info->n);
 };
+
+/* MarginalizationFactor::MarginalizationFactor()
+{
+    int size = 7, local_size = 6;
+    mutable_parameter_block_sizes()->push_back(size);
+    set_num_residuals(local_size);
+} */
 
 bool MarginalizationFactor::Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
 {
