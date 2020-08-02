@@ -1,0 +1,100 @@
+---------- Test whether the information matrix is full rank ----------
+
+
+V1_01_easy:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 1104 / 1111 = 0.994
+the information matrix in marginalize function:
+No prior:  
+Add prior: 1316 / 1325 = 0.993
+
+
+V1_02_medium:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 731 / 777 = 0.941
+the information matrix in marginalize function:
+No prior:  
+Add prior: 749 / 797 = 0.940
+
+
+V1_03_difficult:
+the information matrix in marginalize_except_keyframes function:
+No prior:  627 / 961 = 0.642
+Add prior: 718 / 957 = 0.750
+the information matrix in marginalize function:
+No prior:  324 / 984 = 0.329
+Add prior: 708 / 979 = 0.723
+
+
+V2_01_easy:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 789 / 797 = 0.990
+the information matrix in marginalize function:
+No prior:  
+Add prior: 992 / 1002 = 0.990
+
+
+V2_02_medium:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 1002 / 1060 = 0.945
+the information matrix in marginalize function:
+No prior:  
+Add prior: 1051 / 1112 = 0.945
+
+
+V2_03_difficult:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 675 / 877 = 0.770
+the information matrix in marginalize function:
+No prior:  
+Add prior: 686 / 900 = 0.762
+
+
+MH_01_easy:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 1100 / 1101 = 0.999
+the information matrix in marginalize function:
+No prior:  
+Add prior: 1431 / 1435 = 0.997
+
+
+MH_02_easy:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 909 / 928 = 0.980
+the information matrix in marginalize function:
+No prior:  
+Add prior: 1249 / 1271 = 0.983
+
+
+MH_03_medium:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 999 / 999 = 1.000
+the information matrix in marginalize function:
+No prior:  
+Add prior: 1130 / 1131 = 0.999
+
+
+MH_04_difficult:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 715 / 719 = 0.994
+the information matrix in marginalize function:
+No prior:  
+Add prior: 847 / 851 = 0.995
+
+
+MH_05_difficult:
+the information matrix in marginalize_except_keyframes function:
+No prior:  
+Add prior: 742 / 742 = 1.000
+the information matrix in marginalize function:
+No prior:  
+Add prior: 950 / 951 = 0.999
