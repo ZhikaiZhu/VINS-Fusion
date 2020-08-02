@@ -1,56 +1,67 @@
 ---------- RMSE result for testing VINS-Fusion with EuRoC dataset ----------
 
 V1_01_easy:
-4DoF(Stereo + IMU): 0.083412
-6DoF(Stereo): 0.242046
-6DoF(Stereo + IMU): 0.076668
+4DoF(Stereo + IMU):         0.083412
+4DoF(Stereo + IMU + Prior): 0.081073
+6DoF(Stereo):               0.242046
+6DoF(Stereo + IMU):         0.076668
 
 V1_02_medium:
-4DoF(Stereo + IMU): 0.063867
-6DoF(Stereo): 0.163855
-6DoF(Stereo + IMU): 0.062881
+4DoF(Stereo + IMU):         0.063867
+4DoF(Stereo + IMU + Prior): 0.064341
+6DoF(Stereo):               0.163855
+6DoF(Stereo + IMU):         0.062881
 
 V1_03_difficult:
-4DoF(Stereo + IMU): 0.089576
-6DoF(Stereo):2.571753
-6DoF(Stereo + IMU): 0.099940
+4DoF(Stereo + IMU):         0.089576
+4DoF(Stereo + IMU + Prior): 0.072774
+6DoF(Stereo):               2.571753
+6DoF(Stereo + IMU):         0.099940
 
 V2_01_easy:
-4DoF(Stereo + IMU): 0.054494
-6DoF(Stereo): 0.078929
-6DoF(Stereo + IMU): 0.047282
+4DoF(Stereo + IMU):         0.054494
+4DoF(Stereo + IMU + Prior): 0.064872
+6DoF(Stereo):               0.078929
+6DoF(Stereo + IMU):         0.047282
 
 V2_02_medium:
-4DoF(Stereo + IMU): 0.087320
-6DoF(Stereo): 0.183229
-6DoF(Stereo + IMU): 0.094713
+4DoF(Stereo + IMU):         0.087320
+4DoF(Stereo + IMU + Prior): 0.081479
+6DoF(Stereo):               0.183229
+6DoF(Stereo + IMU):         0.094713
 
 V2_03_difficult:
-4DoF(Stereo + IMU): 0.113263
-6DoF(Stereo): 15441601
-6DoF(Stereo + IMU): 0.179159
+4DoF(Stereo + IMU):         0.113263
+4DoF(Stereo + IMU + Prior): 0.087638
+6DoF(Stereo):               15441601
+6DoF(Stereo + IMU):         0.179159
 
 MH_01_easy:
-4DoF(Stereo + IMU): 0.172386
-6DoF(Stereo): 0.178571
-6DoF(Stereo + IMU): 0.167805
+4DoF(Stereo + IMU):         0.172386
+4DoF(Stereo + IMU + Prior): 0.161209
+6DoF(Stereo):               0.178571
+6DoF(Stereo + IMU):         0.167805
 
 MH_02_easy:
-4DoF(Stereo + IMU): 0.154161
-6DoF(Stereo): 0.255324
-6DoF(Stereo + IMU): 0.157953
+4DoF(Stereo + IMU):         0.154161
+4DoF(Stereo + IMU + Prior): 0.210437
+6DoF(Stereo):               0.255324
+6DoF(Stereo + IMU):         0.157953
 
 MH_03_medium:
-4DoF(Stereo + IMU): 0.130423
-6DoF(Stereo): 0.172888
-6DoF(Stereo + IMU): 0.128239
+4DoF(Stereo + IMU):         0.130423
+4DoF(Stereo + IMU + Prior): 0.140413
+6DoF(Stereo):               0.172888
+6DoF(Stereo + IMU):         0.128239
 
 MH_04_difficult:
-4DoF(Stereo + IMU): 0.271489
-6DoF(Stereo): 0.427298
-6DoF(Stereo + IMU): 0.289917
+4DoF(Stereo + IMU):         0.271489
+4DoF(Stereo + IMU + Prior): 0.266091
+6DoF(Stereo):               0.427298
+6DoF(Stereo + IMU):         0.289917
 
 MH_05_difficult:
-4DoF(Stereo + IMU): 0.292480
-6DoF(Stereo): 0.359070
-6DoF(Stereo + IMU): 0.282440
+4DoF(Stereo + IMU):         0.292480
+4DoF(Stereo + IMU + Prior): 0.265733
+6DoF(Stereo):               0.359070
+6DoF(Stereo + IMU):         0.282440
