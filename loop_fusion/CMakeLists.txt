@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
     camera_models
     cv_bridge
     roslib
+    vins
     )
 
 find_package(OpenCV)
@@ -44,3 +45,4 @@ add_executable(loop_fusion_node
     )
 
 target_link_libraries(loop_fusion_node ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${CERES_LIBRARIES}) 
+add_dependencies(loop_fusion_node vins_gencpp)

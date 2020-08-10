@@ -180,7 +180,7 @@ void* ThreadsConstructA(void* threadsstruct)
     return threadsstruct;
 }
 
-bool MarginalizationInfo::marginalize_except_keyframes(std::vector<long> keyframes) {
+bool MarginalizationInfo::marginalize_except_keyframes(const std::vector<long> &keyframes) {
     int pos = 0;
 
     for (const auto &it : parameter_block_size) {

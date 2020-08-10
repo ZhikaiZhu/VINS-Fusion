@@ -39,6 +39,7 @@ queue<sensor_msgs::ImageConstPtr> image_buf;
 queue<sensor_msgs::PointCloudConstPtr> point_buf;
 queue<nav_msgs::Odometry::ConstPtr> pose_buf;
 queue<Eigen::Vector3d> odometry_buf;
+queue<vins::NonlinearFactor::ConstPtr> nf_buf;
 std::mutex m_buf;
 std::mutex m_process;
 int frame_index  = 0;
@@ -187,6 +188,14 @@ void pose_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
                                                        pose_msg->pose.pose.orientation.y,
                                                        pose_msg->pose.pose.orientation.z);
     */
+}
+
+void nf_callback(const vins::NonlinearFactor::ConstPtr &nf_msg)
+{
+    ROS_INFO("nf_callback!");
+    m_buf.lock();
+    nf_buf.push(nf_msg);
+    m_buf.unlock();
 }
 
 void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
@@ -484,6 +493,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_extrinsic = n.subscribe("/vins_estimator/extrinsic", 2000, extrinsic_callback);
     ros::Subscriber sub_point = n.subscribe("/vins_estimator/keyframe_point", 2000, point_callback);
     ros::Subscriber sub_margin_point = n.subscribe("/vins_estimator/margin_cloud", 2000, margin_point_callback);
+    ros::Subscriber sub_nf = n.subscribe("/vins_estimator/NonlinearFactor", 2000, nf_callback);
 
     pub_match_img = n.advertise<sensor_msgs::Image>("match_image", 1000);
     pub_camera_pose_visual = n.advertise<visualization_msgs::MarkerArray>("camera_pose_visual", 1000);

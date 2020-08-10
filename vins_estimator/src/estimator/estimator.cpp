@@ -1250,10 +1250,10 @@ void Estimator::optimization()
             extract_nonlinear_factors(marginalization_info, keyframe_poses, keyframe_address_to_idx);
             ++extraction_count;
             extraction_time += t_margin_aux.toc();
-            std::cout << "-------------------------------------------\n" <<
-            "-------------------------------------------\n" << extraction_time / extraction_count <<
-            "-------------------------------------------\n" <<
-            "-------------------------------------------\n";
+            // std::cout << "-------------------------------------------\n" <<
+            // "-------------------------------------------\n" << extraction_time / extraction_count <<
+            // "-------------------------------------------\n" <<
+            // "-------------------------------------------\n";
         }
         TicToc t_margin;
         // 1. before marginalization, construct the information matrix related to the keyframe as below,
@@ -1639,14 +1639,14 @@ void Estimator::updateLatestStates()
     mPropagate.unlock();
 }
 
-void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_info, std::vector<long> keyframes, std::unordered_map<long, int> keyframe_address_to_idx) {
+void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_info, const std::vector<long> &keyframes, const std::unordered_map<long, int> &keyframe_address_to_idx) {
     vins::NonlinearFactor nf;
     nf.current_keyframe.stamp = ros::Time(Headers[0]);
     nf.current_keyframe.frame_id = "world";
     
     long keyframe_to_marg = -1;
     for (auto kf : keyframes) {
-        if (keyframe_address_to_idx[kf] == 0) {
+        if (keyframe_address_to_idx.at(kf) == 0) {
             keyframe_to_marg = kf;
             break;
         }
@@ -1723,7 +1723,7 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_i
     for (auto kf : keyframes) {
         if (kf != keyframe_to_marg) {
             nav_msgs::Odometry rel_odom;
-            parameters[1] = para_Pose[keyframe_address_to_idx[kf]];
+            parameters[1] = para_Pose[keyframe_address_to_idx.at(kf)];
             Eigen::Vector3d P_j(parameters[1][0], parameters[1][1], parameters[1][2]);
             Eigen::Quaterniond Q_j(parameters[1][6], parameters[1][3], parameters[1][4], parameters[1][5]);
             Eigen::Vector3d P_w_ij = P_j - P_i;
@@ -1743,13 +1743,13 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo *marginalization_i
             Eigen::MatrixXd cov_new = J * marginalization_info->cov_old * J.transpose();
             RelPoseFactor RPF;
             RPF.Header_i = Headers[0];
-            RPF.Header_j = Headers[keyframe_address_to_idx[kf]];
+            RPF.Header_j = Headers[keyframe_address_to_idx.at(kf)];
             RPF.rel_P = P_i_ij;
             RPF.rel_Q = Q_ij;
             RPF.cov_inv.setIdentity();
             cov_new.ldlt().solveInPlace(RPF.cov_inv);
             rel_pose_factors.emplace_back(RPF);
-            // std::cout << "constructing relative pose factors: \n" << "idx j: " << keyframe_address_to_idx[kf] << '\n' << "relative p: \n";
+            // std::cout << "constructing relative pose factors: \n" << "idx j: " << keyframe_address_to_idx.at(kf) << '\n' << "relative p: \n";
             // std::cout << RPF.rel_P << '\n' << "covariance inverse: \n";
             // std::cout << RPF.cov_inv << std::endl;
             rel_odom.header.stamp = ros::Time(RPF.Header_j);

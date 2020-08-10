@@ -35,6 +35,7 @@
 #include "ThirdParty/DBoW/TemplatedDatabase.h"
 #include "ThirdParty/DBoW/TemplatedVocabulary.h"
 
+#include "vins/NonlinearFactor.h"
 
 #define SHOW_S_EDGE false
 #define SHOW_L_EDGE true
