@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
     std_msgs
     geometry_msgs
     nav_msgs
+    message_generation
     tf
     cv_bridge
     camera_models
@@ -33,7 +34,21 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
 )
 
-catkin_package()
+add_message_files(
+    FILES 
+    NonlinearFactor.msg
+)
+
+generate_messages(
+    DEPENDENCIES
+    std_msgs
+    nav_msgs
+    geometry_msgs
+)
+
+catkin_package(
+    CATKIN_DEPENDS message_runtime
+)
 
 add_library(vins_lib
     src/estimator/parameters.cpp
@@ -63,4 +78,7 @@ target_link_libraries(kitti_odom_test vins_lib)
 
 add_executable(kitti_gps_test src/KITTIGPSTest.cpp)
 target_link_libraries(kitti_gps_test vins_lib) 
+
+add_executable(test src/test.cpp)
+target_link_libraries(test vins_lib) 
 

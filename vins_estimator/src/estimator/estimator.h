@@ -16,6 +16,7 @@
 #include <ceres/ceres.h>
 #include <unordered_map>
 #include <queue>
+#include <set>
 #include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
@@ -88,6 +89,9 @@ class Estimator
     void fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Eigen::Vector3d angular_velocity);
     bool IMUAvailable(double t);
     void initFirstIMUPose(vector<pair<double, Eigen::Vector3d>> &accVector);
+
+    // nfr
+    void extract_nonlinear_factors(MarginalizationInfo* marginalization_info, std::vector<long>& keyframes, std::unordered_map<long, int>& keyframe_addr_to_idx);
 
     enum SolverFlag
     {
@@ -184,8 +188,8 @@ class Estimator
     bool initFirstPoseFlag;
     bool initThreadFlag;
 
-    Eigen::aligned_allocator<RPFactor> rp_factors;
-    Eigen::aligned_allocator<RelPoseFactor> rel_pose_factors;
+    Eigen::aligned_vector<RPFactor> rp_factors;
+    Eigen::aligned_vector<RelPoseFactor> rel_pose_factors;
 
     // add prior information
     bool add_prior_flag = true;
@@ -198,4 +202,6 @@ class Estimator
     double marg_time = 0.0;
     int whole_count = 0;
     double whole_time = 0.0;
+    int aux_count = 0;
+    double aux_time = 0.0;
 };

@@ -1256,7 +1256,13 @@ void Estimator::optimization()
         ROS_DEBUG("pre marginalization %f ms", t_pre_margin.toc());
         
         TicToc t_margin_aux;
-        marginalization_info->marginalize_except_keyframes(keyframe_poses);
+        if (marginalization_info->marginalize_except_keyframes(keyframe_poses))
+        {
+            extract_nonlinear_factors(marginalization_info, keyframe_poses, keyframe_addr_to_idx);
+            ++aux_count;
+            aux_time += t_margin_aux.toc();
+            printf("nonlinear factors extractions costs: %f \n", aux_time / aux_count);
+        }
 
         TicToc t_margin;
         marginalization_info->marginalize();
@@ -1696,4 +1702,154 @@ void Estimator::addPrior()
         delete last_marginalization_info;
     last_marginalization_info = marginalization_info;
     last_marginalization_parameter_blocks = parameter_blocks;
+}
+
+// nfr
+void Estimator::extract_nonlinear_factors(MarginalizationInfo* marginalization_info, std::vector<long>& keyframes, std::unordered_map<long, int>& keyframe_addr_to_idx)
+{
+    vins::NonlinearFactor nf;
+    nf.current_keyframe.stamp = ros::Time(Headers[0]);
+    nf.current_keyframe.frame_id = "world";
+
+    long keyframe_to_marg = -1;
+    for (auto& kp: keyframes)
+    {
+        if (keyframe_addr_to_idx.at(kp) == 0)
+        {
+            keyframe_to_marg = kp;
+            break;
+        }
+    }
+
+    // relative pose factor
+    double** parameters = new double* [2];
+    parameters[0] = para_Pose[0];
+    double* res_rel = new double[6];
+    double** jaco_rel = new double* [2];
+    jaco_rel[0] = new double[6 * 7];
+    jaco_rel[1] = new double[6 * 7];
+
+    Eigen::Vector3d P_i(parameters[0][0], parameters[0][1], parameters[0][2]);
+    Eigen::Quaterniond Q_i(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+
+    nf.zrp.x = Q_i.x();
+    nf.zrp.y = Q_i.y();
+    nf.zrp.z = Q_i.z();
+    nf.zrp.w = Q_i.w();
+
+    double* res_pos = new double[3];
+    double** jaco_pos = new double* [1];
+    jaco_pos[0] = new double[3 * 7];
+
+    double* res_yaw = new double[1];
+    double** jaco_yaw = new double* [1];
+    jaco_yaw[0] = new double[1 * 7];
+
+    double* res_rp = new double[2];
+    double** jaco_rp = new double* [1];
+    jaco_rp[0] = new double[2 * 7]; 
+
+    Eigen::MatrixXd J_self;
+    J_self.setZero(6, marginalization_info->n_aux);
+
+    std::shared_ptr<AbsPositionFactor> absPosF = std::make_shared<AbsPositionFactor>(P_i, Eigen::MatrixXd::Identity(3, 3));
+    Eigen::Map<Eigen::Matrix<double, 3, 7, Eigen::RowMajor>> d_pos_d_T_wi(jaco_pos[0]);
+    absPosF->Evaluate(parameters, res_pos, jaco_pos);
+    J_self.block<3, 6>(0, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_pos_d_T_wi.leftCols(6);
+
+    Eigen::Vector3d z_yaw = Q_i.inverse() * Eigen::Vector3d::UnitX();
+    std::shared_ptr<YawFactor> yawF = std::make_shared<YawFactor>(z_yaw, Eigen::MatrixXd::Identity(1, 1));
+    Eigen::Map<Eigen::Matrix<double, 1, 7, Eigen::RowMajor>> d_yaw_d_T_wi(jaco_yaw[0]);
+    yawF->Evaluate(parameters, res_yaw, jaco_yaw);
+    J_self.block<1, 6>(3, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_yaw_d_T_wi.leftCols(6);
+
+    std::shared_ptr<RollPitchFactor> rollPitchF = std::make_shared<RollPitchFactor>(Q_i, Eigen::MatrixXd::Identity(2, 2));
+    Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> d_rp_d_T_wi(jaco_rp[0]);
+    rollPitchF->Evaluate(parameters, res_rp, jaco_rp);
+    J_self.block<2, 6>(4, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_rp_d_T_wi.leftCols(6);
+
+    Eigen::MatrixXd cov_self = J_self * marginalization_info->cov_old * J_self.transpose();
+    RPFactor RollPitchF;
+    RollPitchF.Header_i = Headers[0];
+    RollPitchF.z_rp = Q_i;
+    RollPitchF.cov_inv = cov_self.block<2, 2>(4, 4).inverse();
+    rp_factors.emplace_back(RollPitchF);
+
+    for (int i = 0; i < 2; i++)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            nf.cov_rp[i * 2 + j] = RollPitchF.cov_inv(i, j);
+        }
+    }
+
+    for (auto kf: keyframes)
+    {
+        if (kf != keyframe_to_marg)
+        {
+            nav_msgs::Odometry rel_odom;
+            parameters[1] = para_Pose[keyframe_addr_to_idx.at(kf)];
+            Eigen::Vector3d P_j(parameters[1][0], parameters[1][1], parameters[1][2]);
+            Eigen::Quaterniond Q_j(parameters[1][6], parameters[1][3], parameters[1][4], parameters[1][5]);
+            Eigen::Vector3d P_w_ij = P_j - P_i;
+            Eigen::Quaterniond Q_i_inverse = Q_i.inverse();
+            Eigen::Vector3d P_i_ij = Q_i_inverse * P_w_ij;
+            Eigen::Quaterniond Q_ij = Q_i_inverse * Q_j;
+            std::shared_ptr<RelativePoseFactor> relPoseF = std::make_shared<RelativePoseFactor>(P_i_ij, Q_ij, Eigen::MatrixXd::Identity(6, 6));
+
+            Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> d_rel_d_T_wi(jaco_rel[0]);
+            Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> d_rel_d_T_wj(jaco_rel[1]);
+            relPoseF->Evaluate(parameters, res_rel, jaco_rel);
+
+            Eigen::MatrixXd J;
+            J.setZero(6, marginalization_info->n_aux);
+            J.block<6, 6>(0, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_rel_d_T_wi.leftCols(6);
+            J.block<6, 6>(0, marginalization_info->parameter_block_idx_aux[kf] - marginalization_info->m_aux) = d_rel_d_T_wj.leftCols(6);
+            Eigen::MatrixXd cov_new = J * marginalization_info->cov_old * J.transpose();
+            RelPoseFactor RelPF;
+            RelPF.Header_i = Headers[0];
+            RelPF.Header_j = Headers[keyframe_addr_to_idx.at(kf)];
+            RelPF.z_rel_P = P_i_ij;
+            RelPF.z_rel_Q = Q_ij;
+            RelPF.cov_inv.setIdentity();
+            cov_new.ldlt().solveInPlace(RelPF.cov_inv);
+            rel_pose_factors.emplace_back(RelPF);
+
+            rel_odom.header.stamp = ros::Time(RelPF.Header_j);
+            rel_odom.pose.pose.position.x = P_i_ij.x();
+            rel_odom.pose.pose.position.y = P_i_ij.y();
+            rel_odom.pose.pose.position.z = P_i_ij.z();
+            rel_odom.pose.pose.orientation.x = Q_ij.x();
+            rel_odom.pose.pose.orientation.y = Q_ij.y();
+            rel_odom.pose.pose.orientation.z = Q_ij.z();
+            rel_odom.pose.pose.orientation.w = Q_ij.w();
+
+            for (int i = 0; i < 6; i++)
+            {
+                for (int j = 0; j < 6; j++)
+                {
+                    rel_odom.pose.covariance[i * 6 + j] = RelPF.cov_inv(i, j);
+                }
+            }
+            nf.related_keyframes.emplace_back(rel_odom);
+        }
+    }
+
+    // delete
+    delete[] res_rel;
+    delete[] jaco_rel[0];
+    delete[] jaco_rel[1];
+    delete[] jaco_rel;
+    delete[] parameters[0];
+    delete[] parameters[1];
+    delete[] parameters;
+    delete[] res_pos;
+    delete[] jaco_pos;
+    delete[] res_yaw;
+    delete[] jaco_yaw;
+    delete[] res_rp;
+    delete[] jaco_rp;
+
+    pub_nfr.publish(nf);
+
 }
