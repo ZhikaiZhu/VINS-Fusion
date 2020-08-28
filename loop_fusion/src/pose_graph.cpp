@@ -50,6 +50,8 @@ void PoseGraph::setIMUFlag(bool _use_imu)
     {
         printf("VIO input, perfrom 4 DoF (x, y, z, yaw) pose graph optimization\n");
         t_optimization = std::thread(&PoseGraph::optimize4DoF, this);
+        //printf("VIO input, perfrom 6 DoF pose graph optimization\n");
+        //t_optimization = std::thread(&PoseGraph::optimize6DoF, this);
     }
     else
     {
