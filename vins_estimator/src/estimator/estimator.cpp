@@ -1840,8 +1840,8 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo* marginalization_i
     delete[] jaco_rel[0];
     delete[] jaco_rel[1];
     delete[] jaco_rel;
-    delete[] parameters[0];
-    delete[] parameters[1];
+    // delete[] parameters[0];
+    // delete[] parameters[1];
     delete[] parameters;
     delete[] res_pos;
     delete[] jaco_pos;

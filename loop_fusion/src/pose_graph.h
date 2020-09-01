@@ -34,6 +34,7 @@
 #include "ThirdParty/DVision/DVision.h"
 #include "ThirdParty/DBoW/TemplatedDatabase.h"
 #include "ThirdParty/DBoW/TemplatedVocabulary.h"
+#include "vins/NonlinearFactor.h"
 
 
 #define SHOW_S_EDGE false

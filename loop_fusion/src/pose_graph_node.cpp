@@ -35,10 +35,11 @@
 #define SKIP_FIRST_CNT 10
 using namespace std;
 
-queue<sensor_msgs::ImageConstPtr> image_buf;
-queue<sensor_msgs::PointCloudConstPtr> point_buf;
+queue<sensor_msgs::ImageConstPtr> image_buf;        // 原始图像数据
+queue<sensor_msgs::PointCloudConstPtr> point_buf;   // 世界坐标系下的点云
 queue<nav_msgs::Odometry::ConstPtr> pose_buf;
 queue<Eigen::Vector3d> odometry_buf;
+queue<vins::NonlinearFactor::ConstPtr> nf_buf;
 std::mutex m_buf;
 std::mutex m_process;
 int frame_index  = 0;
@@ -73,6 +74,7 @@ double last_image_time = -1;
 
 ros::Publisher pub_point_cloud, pub_margin_cloud;
 
+// 开始一个新的图像序列(地图合并)
 void new_sequence()
 {
     printf("new sequence\n");
@@ -187,6 +189,14 @@ void pose_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
                                                        pose_msg->pose.pose.orientation.y,
                                                        pose_msg->pose.pose.orientation.z);
     */
+}
+
+void nf_callback(const vins::NonlinearFactor::ConstPtr &nf_msg)
+{
+    // ROS_INFO("nf_callback!");
+    m_buf.lock();
+    nf_buf.push(nf_msg);
+    m_buf.unlock();
 }
 
 void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
@@ -484,6 +494,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_extrinsic = n.subscribe("/vins_estimator/extrinsic", 2000, extrinsic_callback);
     ros::Subscriber sub_point = n.subscribe("/vins_estimator/keyframe_point", 2000, point_callback);
     ros::Subscriber sub_margin_point = n.subscribe("/vins_estimator/margin_cloud", 2000, margin_point_callback);
+    ros::Subscriber sub_nf = n.subscribe("/vins_estimator/nonlinear_factor", 2000, nf_callback);
 
     pub_match_img = n.advertise<sensor_msgs::Image>("match_image", 1000);
     pub_camera_pose_visual = n.advertise<visualization_msgs::MarkerArray>("camera_pose_visual", 1000);

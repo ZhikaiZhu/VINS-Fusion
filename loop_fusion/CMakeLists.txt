@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(loop_fusion)
 
-set(OpenCV_DIR "/home/spc/Software/opencv-3.4.5/build/OpenCVConfig.cmake")
+set(OpenCV_DIR "/home/spc/Software/opencv-3.4.0/build/OpenCVConfig.cmake")
 
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++11")
@@ -15,9 +15,10 @@ find_package(catkin REQUIRED COMPONENTS
     camera_models
     cv_bridge
     roslib
+    vins
     )
 
-find_package(OpenCV 3.4.5)
+find_package(OpenCV 3.4.0)
 
 
 find_package(Ceres REQUIRED)
@@ -46,3 +47,4 @@ add_executable(loop_fusion_node
     )
 
 target_link_libraries(loop_fusion_node ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${CERES_LIBRARIES}) 
+add_dependencies(loop_fusion_node vins_gencpp)

@@ -458,7 +458,7 @@ void PoseGraph::optimize4DoF()
         m_optimize_buf.lock();
         while(!optimize_buf.empty())
         {
-            cur_index = optimize_buf.front();
+            cur_index = optimize_buf.front();   // 取optimize_buf的最后一个元素
             first_looped_index = earliest_loop_index;
             optimize_buf.pop();
         }
@@ -473,6 +473,7 @@ void PoseGraph::optimize4DoF()
             int max_length = cur_index + 1;
 
             // w^t_i   w^q_i
+            // 定义优化变量
             double t_array[max_length][3];
             Quaterniond q_array[max_length];
             double euler_array[max_length][3];
@@ -488,6 +489,7 @@ void PoseGraph::optimize4DoF()
             ceres::LossFunction *loss_function;
             loss_function = new ceres::HuberLoss(0.1);
             //loss_function = new ceres::CauchyLoss(1.0);
+            // 指定Yaw角优化变量是如何进行迭代更新的
             ceres::LocalParameterization* angle_local_parameterization =
                 AngleLocalParameterization::Create();
 
