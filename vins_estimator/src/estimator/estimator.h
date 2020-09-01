@@ -20,6 +20,7 @@
 #include <opencv2/core/eigen.hpp>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include <math.h>
 
 #include "parameters.h"
 #include "feature_manager.h"
@@ -187,6 +188,9 @@ class Estimator
     
     Eigen::aligned_vector<RPFactor> rp_factors;
     Eigen::aligned_vector<RelPoseFactor> rel_pose_factors;
+
+    bool add_prior_flag = true;
+    void addPrior();
 
     int extraction_count = 0;
     double extraction_time = 0.0;

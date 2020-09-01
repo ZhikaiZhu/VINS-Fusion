@@ -87,6 +87,7 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
     vio_R_cur = w_r_vio *  vio_R_cur;
     cur_kf->updateVioPose(vio_P_cur, vio_R_cur);
     cur_kf->index = global_index;
+    keyframemap[cur_kf->time_stamp] = cur_kf->index;
     global_index++;
 	int loop_index = -1;
     if (flag_detect_loop)

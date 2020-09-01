@@ -16,6 +16,8 @@
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
 #include <string>
+#include <unordered_map>
+#include <vector>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 #include <queue>
@@ -34,6 +36,7 @@
 #include "ThirdParty/DVision/DVision.h"
 #include "ThirdParty/DBoW/TemplatedDatabase.h"
 #include "ThirdParty/DBoW/TemplatedVocabulary.h"
+#include "../../vins_estimator/src/estimator/estimator.h"
 
 #include "vins/NonlinearFactor.h"
 
@@ -67,7 +70,8 @@ public:
 	// world frame( base sequence or first sequence)<----> cur sequence frame  
 	Vector3d w_t_vio;
 	Matrix3d w_r_vio;
-
+	Eigen::aligned_vector<RPFactor> rp_factors;
+    Eigen::aligned_vector<RelPoseFactor> rel_pose_factors;
 
 private:
 	int detectLoop(KeyFrame* keyframe, int frame_index);
@@ -76,6 +80,8 @@ private:
 	void optimize6DoF();
 	void updatePath();
 	list<KeyFrame*> keyframelist;
+	std::vector<KeyFrame*> keyframevector;
+	std::unordered_map<double, int> keyframemap;
 	std::mutex m_keyframelist;
 	std::mutex m_optimize_buf;
 	std::mutex m_path;
