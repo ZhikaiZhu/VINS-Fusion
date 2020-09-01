@@ -37,6 +37,7 @@
 #include "ThirdParty/DBoW/TemplatedDatabase.h"
 #include "ThirdParty/DBoW/TemplatedVocabulary.h"
 #include "../../vins_estimator/src/estimator/estimator.h"
+#include "pose_local_parameterization.h"
 
 #include "vins/NonlinearFactor.h"
 

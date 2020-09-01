@@ -460,6 +460,7 @@ void PoseGraph::optimize4DoF()
             Quaterniond q_array[max_length];
             double euler_array[max_length][3];
             double sequence_array[max_length];
+            double para_pose[max_length][7];
 
             ceres::Problem problem;
             ceres::Solver::Options options;
@@ -474,14 +475,17 @@ void PoseGraph::optimize4DoF()
             ceres::LocalParameterization* angle_local_parameterization =
                 AngleLocalParameterization::Create();
 
-            list<KeyFrame*>::iterator it;
+            ceres::LocalParameterization *local_parameterization = new PLParameterization();
 
+            list<KeyFrame*>::iterator it;
+            unordered_map<double, int> keyframemap_local;
             int i = 0;
             for (it = keyframelist.begin(); it != keyframelist.end(); it++)
             {
                 if ((*it)->index < first_looped_index)
                     continue;
                 (*it)->local_index = i;
+                keyframemap_local[(*it)->time_stamp] = i;
                 Quaterniond tmp_q;
                 Matrix3d tmp_r;
                 Vector3d tmp_t;
@@ -499,8 +503,17 @@ void PoseGraph::optimize4DoF()
 
                 sequence_array[i] = (*it)->sequence;
 
+                para_pose[i][0] = tmp_t(0);
+                para_pose[i][1] = tmp_t(1);
+                para_pose[i][2] = tmp_t(2);
+                para_pose[i][3] = tmp_q.x();
+                para_pose[i][4] = tmp_q.y();
+                para_pose[i][5] = tmp_q.z();
+                para_pose[i][6] = tmp_q.w();
+
                 problem.AddParameterBlock(euler_array[i], 1, angle_local_parameterization);
                 problem.AddParameterBlock(t_array[i], 3);
+                problem.AddParameterBlock(para_pose[i], 7, local_parameterization);
 
                 if ((*it)->index == first_looped_index || (*it)->sequence == 0)
                 {   
@@ -550,6 +563,21 @@ void PoseGraph::optimize4DoF()
                 i++;
             }
             m_keyframelist.unlock();
+
+            for (const auto &factor : rp_factors) {
+                if (!keyframemap_local.count(factor.Header_i)) continue;
+                Eigen::Matrix2d sqrt_info = Eigen::LLT<Eigen::Matrix2d>(factor.cov_inv).matrixL().transpose();
+                RollPitchFactor * f_rp = new RollPitchFactor(factor.zrp, sqrt_info);
+                problem.AddResidualBlock(f_rp, NULL,para_pose[keyframemap_local.at(factor.Header_i)]);
+            }
+
+            for (const auto &factor : rel_pose_factors) {
+                if (!keyframemap_local.count(factor.Header_i)) continue;
+                if (!keyframemap_local.count(factor.Header_j)) continue;
+                Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>(factor.cov_inv).matrixL().transpose();
+                RelativePoseFactor * f_rp = new RelativePoseFactor(factor.rel_P, factor.rel_Q, sqrt_info);
+                problem.AddResidualBlock(f_rp, NULL, para_pose[keyframemap_local.at(factor.Header_i)], para_pose[keyframemap_local.at(factor.Header_j)]);
+            }
 
             ceres::Solve(options, &problem, &summary);
             //std::cout << summary.BriefReport() << "\n";
