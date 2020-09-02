@@ -555,7 +555,12 @@ void PoseGraph::optimize4DoF()
                                                                   t_array[connected_index], 
                                                                   euler_array[i], 
                                                                   t_array[i]);
-                    
+
+                    Quaterniond relative_q;
+                    relative_q = (*it)->getLoopRelativeQ();
+                    Eigen::Matrix<double, 6, 6> sqrt_info = 100 * Eigen::Matrix<double, 6, 6>::Identity();
+                    RelativePoseFactor * f_rp = new RelativePoseFactor(relative_t, relative_q, sqrt_info);
+                    problem.AddResidualBlock(f_rp, loss_function, para_pose[connected_index], para_pose[i]);
                 }
                 
                 if ((*it)->index == cur_index)
@@ -564,14 +569,18 @@ void PoseGraph::optimize4DoF()
             }
             m_keyframelist.unlock();
 
-            for (const auto &factor : rp_factors) {
+            int rp_size = rp_factors.size();
+            for (auto i{0}; i < rp_size; ++i) {
+                auto factor = rp_factors[i];
                 if (!keyframemap_local.count(factor.Header_i)) continue;
                 Eigen::Matrix2d sqrt_info = Eigen::LLT<Eigen::Matrix2d>(factor.cov_inv).matrixL().transpose();
                 RollPitchFactor * f_rp = new RollPitchFactor(factor.zrp, sqrt_info);
                 problem.AddResidualBlock(f_rp, NULL,para_pose[keyframemap_local.at(factor.Header_i)]);
             }
 
-            for (const auto &factor : rel_pose_factors) {
+            rp_size = rel_pose_factors.size();
+            for (auto i{0}; i < rp_size; ++i) {
+                auto factor = rel_pose_factors[i];
                 if (!keyframemap_local.count(factor.Header_i)) continue;
                 if (!keyframemap_local.count(factor.Header_j)) continue;
                 Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>(factor.cov_inv).matrixL().transpose();
@@ -598,6 +607,10 @@ void PoseGraph::optimize4DoF()
                 Quaterniond tmp_q;
                 tmp_q = Utility::ypr2R(Vector3d(euler_array[i][0], euler_array[i][1], euler_array[i][2]));
                 Vector3d tmp_t = Vector3d(t_array[i][0], t_array[i][1], t_array[i][2]);
+
+                tmp_t = Vector3d(para_pose[i][0], para_pose[i][1], para_pose[i][2]);
+                tmp_q = Quaterniond(para_pose[i][6], para_pose[i][3], para_pose[i][4], para_pose[i][5]).normalized();
+
                 Matrix3d tmp_r = tmp_q.toRotationMatrix();
                 (*it)-> updatePose(tmp_t, tmp_r);
 
