@@ -519,6 +519,7 @@ void PoseGraph::optimize4DoF()
                 {   
                     problem.SetParameterBlockConstant(euler_array[i]);
                     problem.SetParameterBlockConstant(t_array[i]);
+                    problem.SetParameterBlockConstant(para_pose[i]);
                 }
 
                 //add edge
