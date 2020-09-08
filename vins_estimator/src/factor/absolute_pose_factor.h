@@ -28,7 +28,7 @@ public:
         Eigen::Vector3d P_i(parameters[0][0], parameters[0][1], parameters[0][2]);
 
     	Eigen::Map<Eigen::Matrix<double, 3, 1>> residual(residuals);
-    	residual.block<3, 1>(0, 0) = z_pos - P_i;
+    	residual.block<3, 1>(0, 0) = P_i - z_pos;
     	residual = sqrt_info * residual;
 
     	if (jacobians)
@@ -37,7 +37,7 @@ public:
     		{
     		    Eigen::Map<Eigen::Matrix<double, 3, 7, Eigen::RowMajor>> jacobian_position_i(jacobians[0]);
     		    jacobian_position_i.setZero();
-    		    jacobian_position_i.block<3, 3>(0, 0) = -Eigen::Matrix<double, 3, 3>::Identity();
+    		    jacobian_position_i.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity();
     		    jacobian_position_i = sqrt_info * jacobian_position_i;
     		}
     	}
@@ -64,7 +64,7 @@ public:
 		Eigen::Vector3d P_i(parameters[0][0], parameters[0][1], parameters[0][2]);
 
     	Eigen::Matrix<double, 3, 1> residual;
-    	residual.block<3, 1>(0, 0) = z_pos - P_i;
+    	residual.block<3, 1>(0, 0) = P_i - z_pos;
     	residual = sqrt_info * residual;
 
 	    puts("num");
@@ -82,7 +82,7 @@ public:
 	        P_i_new += delta;
 
     		Eigen::Matrix<double, 3, 1> tmp_residual;
-    		tmp_residual.block<3, 1>(0, 0) = z_pos - P_i_new;
+    		tmp_residual.block<3, 1>(0, 0) = P_i_new - z_pos;
     		tmp_residual = sqrt_info * tmp_residual;
 
 	        num_jacobian_i.col(k) = (tmp_residual - residual) / eps;
@@ -114,7 +114,7 @@ public:
             {
                 Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> jacobian_orientation_i(jacobians[0]);
                 jacobian_orientation_i.setZero();
-                Eigen::Matrix<double, 3, 3> jacobian_orientation = z_rp * Utility::skewSymmetric(g_i);
+                Eigen::Matrix<double, 3, 3> jacobian_orientation = z_rp.toRotationMatrix() * Utility::skewSymmetric(g_i);
                 Eigen::Matrix<double, 2, 3> proj;
                 proj << 1.0, 0.0, 0.0, 0.0, 1.0, 0.0;
                 jacobian_orientation_i.block<2, 3>(0, 3) = sqrt_info * proj * jacobian_orientation;

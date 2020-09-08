@@ -41,7 +41,7 @@ public:
 		Eigen::Quaterniond Q_ij = Q_i_inverse * Q_j;
 
     	Eigen::Map<Eigen::Matrix<double, 6, 1>> residual(residuals);
-    	residual.block<3, 1>(0, 0) = z_rel_P - P_i_ij;
+    	residual.block<3, 1>(0, 0) = P_i_ij - z_rel_P;
     	residual.block<3, 1>(3, 0) = 2 * (z_rel_Q.inverse() * Q_ij).vec();
     	residual = sqrt_info * residual;
 
@@ -51,15 +51,15 @@ public:
     		{
     		    Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> jacobian_pose_i(jacobians[0]);
     		    jacobian_pose_i.setZero();
-    		    jacobian_pose_i.block<3, 3>(0, 0) = Q_i_inverse.toRotationMatrix();
-				jacobian_pose_i.block<3, 3>(0, 3) = -Utility::skewSymmetric(P_i_ij);
+    		    jacobian_pose_i.block<3, 3>(0, 0) = -Q_i_inverse.toRotationMatrix();
+				jacobian_pose_i.block<3, 3>(0, 3) = Utility::skewSymmetric(P_i_ij);
     		    jacobian_pose_i.block<3, 3>(3, 3) = -(Utility::Qright(Q_ij) * Utility::Qleft(z_rel_Q.inverse())).bottomRightCorner<3, 3>();
     		    jacobian_pose_i = sqrt_info * jacobian_pose_i;
     		}
 			if (jacobians[1]) {
 				Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> jacobian_pose_j(jacobians[1]);
     		    jacobian_pose_j.setZero();
-    		    jacobian_pose_j.block<3, 3>(0, 0) = -Q_i_inverse.toRotationMatrix();
+    		    jacobian_pose_j.block<3, 3>(0, 0) = Q_i_inverse.toRotationMatrix();
     		    jacobian_pose_j.block<3, 3>(3, 3) = Utility::Qleft(z_rel_Q.inverse() * Q_ij).bottomRightCorner<3, 3>();
     		    jacobian_pose_j = sqrt_info * jacobian_pose_j;
 			}
@@ -100,7 +100,7 @@ public:
 		Eigen::Quaterniond Q_ij = Q_i_inverse * Q_j;
 
     	Eigen::Matrix<double, 6, 1> residual;
-    	residual.block<3, 1>(0, 0) = z_rel_P - P_i_ij;
+    	residual.block<3, 1>(0, 0) = P_i_ij - z_rel_P;
     	residual.block<3, 1>(3, 0) = 2 * (z_rel_Q.inverse() * Q_ij).vec();
     	residual = sqrt_info * residual;
 
@@ -131,7 +131,7 @@ public:
 			Q_ij = Q_i_inverse * Q_j;
 
     		Eigen::Matrix<double, 6, 1> tmp_residual;
-    		tmp_residual.block<3, 1>(0, 0) = z_rel_P - P_i_ij;
+    		tmp_residual.block<3, 1>(0, 0) = P_i_ij - z_rel_P;
     		tmp_residual.block<3, 1>(3, 0) = 2 * (z_rel_Q.inverse() * Q_ij).vec();
     		tmp_residual = sqrt_info * tmp_residual;
 
@@ -161,7 +161,7 @@ public:
 			Q_ij = Q_i_inverse * Q_j_new;
 
     		Eigen::Matrix<double, 6, 1> tmp_residual;
-    		tmp_residual.block<3, 1>(0, 0) = z_rel_P - P_i_ij;
+    		tmp_residual.block<3, 1>(0, 0) = P_i_ij - z_rel_P;
     		tmp_residual.block<3, 1>(3, 0) = 2 * (z_rel_Q.inverse() * Q_ij).vec();
     		tmp_residual = sqrt_info * tmp_residual;
 

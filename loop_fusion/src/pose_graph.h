@@ -19,6 +19,8 @@
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 #include <queue>
+#include <vector>
+#include <unordered_map>
 #include <assert.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PointStamped.h>
@@ -34,6 +36,9 @@
 #include "ThirdParty/DVision/DVision.h"
 #include "ThirdParty/DBoW/TemplatedDatabase.h"
 #include "ThirdParty/DBoW/TemplatedVocabulary.h"
+#include "../../vins_estimator/src/estimator/estimator.h"
+#include "pose_local_parameterization.h"
+
 #include "vins/NonlinearFactor.h"
 
 
@@ -68,6 +73,14 @@ public:
 	Vector3d w_t_vio;
 	Matrix3d w_r_vio;
 
+	Eigen::aligned_vector<RPFactor> rp_factors;
+	Eigen::aligned_vector<RelPoseFactor> rel_pose_factors; 
+	std::mutex m_nf_buf;
+
+	int rp_cnt;
+	int rel_pose_cnt;
+	int seq_edge;
+
 
 private:
 	int detectLoop(KeyFrame* keyframe, int frame_index);
@@ -76,6 +89,8 @@ private:
 	void optimize6DoF();
 	void updatePath();
 	list<KeyFrame*> keyframelist;
+	std::vector<KeyFrame*> keyframevector;
+	std::unordered_map<double, int> keyframemap;
 	std::mutex m_keyframelist;
 	std::mutex m_optimize_buf;
 	std::mutex m_path;

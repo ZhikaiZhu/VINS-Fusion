@@ -74,6 +74,9 @@ double last_image_time = -1;
 
 ros::Publisher pub_point_cloud, pub_margin_cloud;
 
+//Eigen::aligned_vector<RPFactor> tmp_rp_factors;
+//Eigen::aligned_vector<RelPoseFactor> tmp_rel_pose_factors;
+
 // 开始一个新的图像序列(地图合并)
 void new_sequence()
 {
@@ -197,7 +200,7 @@ void nf_callback(const vins::NonlinearFactor::ConstPtr &nf_msg)
     m_buf.lock();
     nf_buf.push(nf_msg);
     m_buf.unlock();
-}
+} 
 
 void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
 {
@@ -259,6 +262,7 @@ void process()
         sensor_msgs::ImageConstPtr image_msg = NULL;
         sensor_msgs::PointCloudConstPtr point_msg = NULL;
         nav_msgs::Odometry::ConstPtr pose_msg = NULL;
+        vins::NonlinearFactor::ConstPtr nf_msg = NULL;
 
         // find out the messages with same time stamp
         m_buf.lock();
@@ -292,7 +296,77 @@ void process()
                 point_buf.pop();
             }
         }
+
+        while (!nf_buf.empty()) 
+        {
+            nf_msg = nf_buf.front();
+            nf_buf.pop();
+            double time_stamp = nf_msg->current_keyframe.stamp.toSec();
+            Eigen::Quaterniond Q_i;
+            Q_i.x() = nf_msg->zrp.x;
+            Q_i.y() = nf_msg->zrp.y;
+            Q_i.z() = nf_msg->zrp.z;
+            Q_i.w() = nf_msg->zrp.w;
+            RPFactor RollPitchF;
+            RollPitchF.Header_i = time_stamp; // different from Header[0]
+            RollPitchF.z_rp = Q_i;
+            for (int i = 0; i < 2; ++i) 
+            {
+                for (int j = 0; j < 2; ++j) 
+                {
+                    RollPitchF.cov_inv(i, j) = nf_msg->cov_rp[i * 2 + j];
+                }
+            }
+            //tmp_rp_factors.emplace_back(RollPitchF);
+            posegraph.rp_factors.emplace_back(RollPitchF);
+            
+            for (auto i{0}; i < nf_msg->related_keyframes.size(); ++i) 
+            {
+                nav_msgs::Odometry odom = nf_msg->related_keyframes[i];
+                double time_stamp_j = odom.header.stamp.toSec();
+                Eigen::Vector3d P_i_ij;
+                Eigen::Quaterniond Q_ij;
+                P_i_ij.x() = odom.pose.pose.position.x;
+                P_i_ij.y() = odom.pose.pose.position.y;
+                P_i_ij.z() = odom.pose.pose.position.z;
+                Q_ij.x() = odom.pose.pose.orientation.x;
+                Q_ij.y() = odom.pose.pose.orientation.y;
+                Q_ij.z() = odom.pose.pose.orientation.z;
+                Q_ij.w() = odom.pose.pose.orientation.w;
+                RelPoseFactor RPF;
+                RPF.Header_i = time_stamp; // different from Header[0]
+                RPF.Header_j = time_stamp_j;
+                RPF.z_rel_P = P_i_ij;
+                RPF.z_rel_Q = Q_ij;
+                for (int i = 0; i < 6; ++i) 
+                {
+                    for (int j = 0; j < 6; ++j) 
+                    {
+                        RPF.cov_inv(i, j) = odom.pose.covariance[i * 6 + j];
+                    }
+                }
+                //tmp_rel_pose_factors.emplace_back(RPF);
+                posegraph.rel_pose_factors.emplace_back(RPF);
+            }
+        } 
         m_buf.unlock();
+
+        /*posegraph.m_nf_buf.lock();
+        int size = tmp_rp_factors.size();
+        for(auto i{0}; i < size; i++)
+        {
+            posegraph.rp_factors.emplace_back(tmp_rp_factors[i]);
+        }
+
+        size = tmp_rel_pose_factors.size();
+        for (auto i{0}; i < size; i++)
+        {
+            posegraph.rel_pose_factors.emplace_back(tmp_rel_pose_factors[i]);
+        }
+
+        tmp_rp_factors.clear();
+        tmp_rel_pose_factors.clear();
+        posegraph.m_nf_buf.unlock(); */
 
         if (pose_msg != NULL)
         {
