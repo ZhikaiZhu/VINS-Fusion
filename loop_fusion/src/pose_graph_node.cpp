@@ -324,11 +324,11 @@ void process()
             {
                 nav_msgs::Odometry odom = nf_msg->related_keyframes[i];
                 double time_stamp_j = odom.header.stamp.toSec();
-                Eigen::Vector3d P_i_ij;
+                Eigen::Vector3d P_w_ij;
                 Eigen::Quaterniond Q_ij;
-                P_i_ij.x() = odom.pose.pose.position.x;
-                P_i_ij.y() = odom.pose.pose.position.y;
-                P_i_ij.z() = odom.pose.pose.position.z;
+                P_w_ij.x() = odom.pose.pose.position.x;
+                P_w_ij.y() = odom.pose.pose.position.y;
+                P_w_ij.z() = odom.pose.pose.position.z;
                 Q_ij.x() = odom.pose.pose.orientation.x;
                 Q_ij.y() = odom.pose.pose.orientation.y;
                 Q_ij.z() = odom.pose.pose.orientation.z;
@@ -336,13 +336,24 @@ void process()
                 RelPoseFactor RPF;
                 RPF.Header_i = time_stamp; // different from Header[0]
                 RPF.Header_j = time_stamp_j;
-                RPF.z_rel_P = P_i_ij;
+                RPF.z_rel_P = P_w_ij;
                 RPF.z_rel_Q = Q_ij;
                 for (int i = 0; i < 6; ++i) 
                 {
                     for (int j = 0; j < 6; ++j) 
                     {
-                        RPF.cov_inv(i, j) = odom.pose.covariance[i * 6 + j];
+                        if (i < 3 && j < 3)
+                        {
+                            RPF.relP_cov_inv(i, j) = odom.pose.covariance[i * 6 + j];
+                        }
+                        else if (i == 3 && j == 3)
+                        {
+                            RPF.relYaw_cov_inv(i - 3, j - 3) = odom.pose.covariance[i * 6 + j];
+                        }
+                        else if (i >= 4 && j >= 4)
+                        {
+                            RPF.relRP_cov_inv(i - 4, j - 4) = odom.pose.covariance[i * 6 + j];
+                        }
                     }
                 }
                 //tmp_rel_pose_factors.emplace_back(RPF);

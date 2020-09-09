@@ -1724,10 +1724,21 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo* marginalization_i
     // relative pose factor
     double** parameters = new double* [2];
     parameters[0] = para_Pose[0];
-    double* res_rel = new double[6];
+    /*double* res_rel = new double[6];
     double** jaco_rel = new double* [2];
     jaco_rel[0] = new double[6 * 7];
-    jaco_rel[1] = new double[6 * 7];
+    jaco_rel[1] = new double[6 * 7]; */
+    double* res_rel_pos =  new double[3];
+    double** jaco_rel_pos = new double* [1];
+    jaco_rel_pos[0] = new double[3 * 7];
+
+    double* res_rel_yaw = new double[1];
+    double** jaco_rel_yaw = new double* [1];
+    jaco_rel_yaw[0] = new double[1 * 7];
+
+    double* res_rel_rp = new double[2];
+    double** jaco_rel_rp = new double* [1];
+    jaco_rel_rp[0] = new double[2 * 7]; 
 
     Eigen::Vector3d P_i(parameters[0][0], parameters[0][1], parameters[0][2]);
     Eigen::Quaterniond Q_i(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
@@ -1792,33 +1803,54 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo* marginalization_i
             Eigen::Vector3d P_j(parameters[1][0], parameters[1][1], parameters[1][2]);
             Eigen::Quaterniond Q_j(parameters[1][6], parameters[1][3], parameters[1][4], parameters[1][5]);
             Eigen::Vector3d P_w_ij = P_j - P_i;
-            Eigen::Quaterniond Q_i_inverse = Q_i.inverse();
+            Eigen::Quaterniond Q_ij = Q_i.inverse() * Q_j;
+            /*Eigen::Quaterniond Q_i_inverse = Q_i.inverse();
             Eigen::Vector3d P_i_ij = Q_i_inverse * P_w_ij;
             Eigen::Quaterniond Q_ij = Q_i_inverse * Q_j;
             std::shared_ptr<RelativePoseFactor> relPoseF = std::make_shared<RelativePoseFactor>(P_i_ij, Q_ij, Eigen::MatrixXd::Identity(6, 6));
 
             Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> d_rel_d_T_wi(jaco_rel[0]);
             Eigen::Map<Eigen::Matrix<double, 6, 7, Eigen::RowMajor>> d_rel_d_T_wj(jaco_rel[1]);
-            relPoseF->Evaluate(parameters, res_rel, jaco_rel);
+            relPoseF->Evaluate(parameters, res_rel, jaco_rel); */
 
             Eigen::MatrixXd J;
             J.setZero(6, marginalization_info->n_aux);
-            J.block<6, 6>(0, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_rel_d_T_wi.leftCols(6);
+            /*J.block<6, 6>(0, marginalization_info->parameter_block_idx_aux[keyframe_to_marg] - marginalization_info->m_aux) = d_rel_d_T_wi.leftCols(6);
             J.block<6, 6>(0, marginalization_info->parameter_block_idx_aux[kf] - marginalization_info->m_aux) = d_rel_d_T_wj.leftCols(6);
+            Eigen::MatrixXd cov_new = J * marginalization_info->cov_old * J.transpose(); */
+            std::shared_ptr<RelPositionFactor> relPosF = std::make_shared<RelPositionFactor>(P_w_ij, Eigen::MatrixXd::Identity(3, 3));
+            Eigen::Map<Eigen::Matrix<double, 3, 7, Eigen::RowMajor>> d_rel_pos_d_T_ij(jaco_rel_pos[0]);
+            relPosF->Evaluate(parameters, res_rel_pos, jaco_rel_pos);
+            J.block<3, 6>(0, marginalization_info->parameter_block_idx_aux[kf] - marginalization_info->m_aux) = d_rel_pos_d_T_ij.leftCols(6);
+
+            Eigen::Vector3d z_rel_yaw = Q_ij.inverse() * Eigen::Vector3d::UnitX();
+            std::shared_ptr<RelYawFactor> relYawF = std::make_shared<RelYawFactor>(z_rel_yaw, Eigen::MatrixXd::Identity(1, 1));
+            Eigen::Map<Eigen::Matrix<double, 1, 7, Eigen::RowMajor>> d_rel_yaw_d_T_ij(jaco_rel_yaw[0]);
+            relYawF->Evaluate(parameters, res_rel_yaw, jaco_rel_yaw);
+            J.block<1, 6>(3, marginalization_info->parameter_block_idx_aux[kf] - marginalization_info->m_aux) = d_rel_yaw_d_T_ij.leftCols(6);
+
+            std::shared_ptr<RelRollPitchFactor> relRPF = std::make_shared<RelRollPitchFactor>(Q_ij, Eigen::MatrixXd::Identity(2, 2));
+            Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> d_rel_rp_d_T_ij(jaco_rel_rp[0]);
+            rollPitchF->Evaluate(parameters, res_rel_rp, jaco_rel_rp);
+            J.block<2, 6>(4, marginalization_info->parameter_block_idx_aux[kf] - marginalization_info->m_aux) = d_rel_rp_d_T_ij.leftCols(6);
             Eigen::MatrixXd cov_new = J * marginalization_info->cov_old * J.transpose();
+
             RelPoseFactor RelPF;
             RelPF.Header_i = Headers[0];
             RelPF.Header_j = Headers[keyframe_addr_to_idx.at(kf)];
-            RelPF.z_rel_P = P_i_ij;
+            RelPF.z_rel_P = P_w_ij;
             RelPF.z_rel_Q = Q_ij;
-            RelPF.cov_inv.setIdentity();
-            cov_new.ldlt().solveInPlace(RelPF.cov_inv);
+            //RelPF.cov_inv.setIdentity();
+            //cov_new.ldlt().solveInPlace(RelPF.cov_inv);
+            RelPF.relP_cov_inv = cov_new.block<3, 3>(0, 0).inverse();
+            RelPF.relYaw_cov_inv = cov_new.block<1, 1>(3, 3).inverse();
+            RelPF.relRP_cov_inv = cov_new.block<2, 2>(4, 4).inverse();
             rel_pose_factors.emplace_back(RelPF);
 
             rel_odom.header.stamp = ros::Time(RelPF.Header_j);
-            rel_odom.pose.pose.position.x = P_i_ij.x();
-            rel_odom.pose.pose.position.y = P_i_ij.y();
-            rel_odom.pose.pose.position.z = P_i_ij.z();
+            rel_odom.pose.pose.position.x = P_w_ij.x();
+            rel_odom.pose.pose.position.y = P_w_ij.y();
+            rel_odom.pose.pose.position.z = P_w_ij.z();
             rel_odom.pose.pose.orientation.x = Q_ij.x();
             rel_odom.pose.pose.orientation.y = Q_ij.y();
             rel_odom.pose.pose.orientation.z = Q_ij.z();
@@ -1828,18 +1860,35 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo* marginalization_i
             {
                 for (int j = 0; j < 6; j++)
                 {
-                    rel_odom.pose.covariance[i * 6 + j] = RelPF.cov_inv(i, j);
+                    if (i < 3 && j < 3)
+                    {
+                        rel_odom.pose.covariance[i * 6 + j] = RelPF.relP_cov_inv(i, j);
+                    }
+                    else if (i == 3 && j == 3)
+                    {
+                        rel_odom.pose.covariance[i * 6 + j] = RelPF.relYaw_cov_inv(i - 3, j - 3);
+                    }
+                    else if (i >= 4 && j >= 4)
+                    {
+                        rel_odom.pose.covariance[i * 6 + j] = RelPF.relRP_cov_inv(i - 4, j - 4);
+                    }
                 }
-            }
+            } 
             nf.related_keyframes.emplace_back(rel_odom);
         }
     }
 
     // delete
-    delete[] res_rel;
+    /*delete[] res_rel;
     delete[] jaco_rel[0];
     delete[] jaco_rel[1];
-    delete[] jaco_rel;
+    delete[] jaco_rel; */
+    delete[] res_rel_pos;
+    delete[] jaco_rel_pos;
+    delete[] res_rel_yaw;
+    delete[] jaco_rel_yaw;
+    delete[] res_rel_rp;
+    delete[] jaco_rel_rp;
     // delete[] parameters[0];
     // delete[] parameters[1];
     delete[] parameters;

@@ -16,6 +16,10 @@ struct RelPoseFactor
     Eigen::Quaterniond z_rel_Q;
     Eigen::Matrix<double, 6, 6> cov_inv;
 
+	Eigen::Matrix<double, 3, 3> relP_cov_inv;
+	Eigen::Matrix<double, 2, 2> relRP_cov_inv;
+	Eigen::Matrix<double, 1, 1> relYaw_cov_inv;
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
@@ -173,4 +177,234 @@ public:
     Eigen::Vector3d z_rel_P;
     Eigen::Quaterniond z_rel_Q;
     Eigen::Matrix<double, 6, 6> sqrt_info;
+};
+
+class RelPositionFactor: public ceres::SizedCostFunction<3, 7>
+{
+	public:
+    RelPositionFactor(const Eigen::Vector3d &_rel_P, const Eigen::Matrix<double, 3, 3> _sqrt_info) : rel_P(_rel_P), sqrt_info(_sqrt_info) {}
+
+    virtual bool Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
+    {
+    	Eigen::Vector3d P_ij(parameters[0][0], parameters[0][1], parameters[0][2]);
+
+    	Eigen::Map<Eigen::Matrix<double, 3, 1>> residual(residuals);
+    	residual.block<3, 1>(0, 0) = P_ij - rel_P;
+    	residual = sqrt_info * residual;
+
+    	if (jacobians)
+    	{
+    		if (jacobians[0])
+    		{
+    		    Eigen::Map<Eigen::Matrix<double, 3, 7, Eigen::RowMajor>> jacobian_position_ij(jacobians[0]);
+    		    jacobian_position_ij.setZero();
+    		    jacobian_position_ij.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity();
+    		    jacobian_position_ij = sqrt_info * jacobian_position_ij;
+    		}
+    	}
+    	return true;
+    }
+
+    void check(double **parameters)
+    {
+	    double *res = new double[3];
+	    double **jaco = new double *[1];
+	    jaco[0] = new double[3 * 7];
+	    Evaluate(parameters, res, jaco);
+	    puts("check begins");
+
+	    puts("my");
+
+	    std::cout << Eigen::Map<Eigen::Matrix<double, 3, 1>>(res).transpose() << std::endl
+	              << std::endl;
+	    std::cout << Eigen::Map<Eigen::Matrix<double, 3, 7, Eigen::RowMajor>>(jaco[0]) << std::endl
+	              << std::endl;
+
+		Eigen::Vector3d P_ij(parameters[0][0], parameters[0][1], parameters[0][2]);
+
+    	Eigen::Matrix<double, 3, 1> residual;
+    	residual.block<3, 1>(0, 0) = P_ij - rel_P;
+    	residual = sqrt_info * residual;
+
+	    puts("num");
+	    std::cout << residual.transpose() << std::endl;
+
+	    const double eps = 1e-6;
+	    Eigen::Matrix<double, 3, 3> num_jacobian_ij;
+	    for (int k = 0; k < 3; k++)
+	    {
+	    	Eigen::Vector3d P_ij_new(parameters[0][0], parameters[0][1], parameters[0][2]);
+
+	        int b = k % 3;
+	        Eigen::Vector3d delta = Eigen::Vector3d(b == 0, b == 1, b == 2) * eps;
+
+	        P_ij_new += delta;
+
+    		Eigen::Matrix<double, 3, 1> tmp_residual;
+    		tmp_residual.block<3, 1>(0, 0) = P_ij_new - rel_P;
+    		tmp_residual = sqrt_info * tmp_residual;
+
+	        num_jacobian_ij.col(k) = (tmp_residual - residual) / eps;
+	    }
+	    std::cout << num_jacobian_ij << std::endl;
+    }
+
+    Eigen::Vector3d rel_P;
+    Eigen::Matrix<double, 3, 3> sqrt_info;
+};
+
+class RelRollPitchFactor : public ceres::SizedCostFunction<2, 7>
+{
+  public:
+    RelRollPitchFactor(const Eigen::Quaterniond &_rel_rp, const Eigen::Matrix<double, 2, 2> _sqrt_info) : rel_rp(_rel_rp), sqrt_info(_sqrt_info) {}
+
+    virtual bool Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
+    {
+    	Eigen::Quaterniond Q_ij(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+		Eigen::Vector3d g_ij = Q_ij.inverse() * (-Eigen::Vector3d::UnitZ());
+		Eigen::Vector3d g_w = rel_rp * g_ij;
+    	Eigen::Map<Eigen::Matrix<double, 2, 1>> residual(residuals);
+    	residual.block<2, 1>(0, 0) = g_w.segment(0, 2);
+    	residual = sqrt_info * residual;
+
+    	if (jacobians)
+    	{
+    		if (jacobians[0])
+    		{
+    		    Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>> jacobian_orientation_ij(jacobians[0]);
+    		    jacobian_orientation_ij.setZero();
+				Eigen::Matrix<double, 3, 3> jacobian_orientation = rel_rp.toRotationMatrix() * Utility::skewSymmetric(g_ij);
+        		Eigen::Matrix<double, 2, 3> reduce(2, 3);
+				reduce << 1.0, 0.0, 0.0,
+				          0.0, 1.0, 0.0;
+				jacobian_orientation_ij.block<2, 3>(0, 3) = sqrt_info * reduce * jacobian_orientation;
+    		}
+    	}
+    	return true;
+    }
+
+    void check(double **parameters)
+    {
+	    double *res = new double[2];
+	    double **jaco = new double *[1];
+	    jaco[0] = new double[2 * 7];
+	    Evaluate(parameters, res, jaco);
+	    puts("check begins");
+
+	    puts("my");
+
+	    std::cout << Eigen::Map<Eigen::Matrix<double, 2, 1>>(res).transpose() << std::endl
+	              << std::endl;
+	    std::cout << Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>>(jaco[0]) << std::endl
+	              << std::endl;
+
+		Eigen::Quaterniond Q_ij(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+		Eigen::Vector3d g_ij = Q_ij.inverse() * (-Eigen::Vector3d::UnitZ());
+		Eigen::Vector3d g_w = rel_rp * g_ij;
+    	Eigen::Matrix<double, 2, 1> residual;
+    	residual.block<2, 1>(0, 0) = g_w.segment(0, 2);
+    	residual = sqrt_info * residual;
+
+	    puts("num");
+	    std::cout << residual.transpose() << std::endl;
+
+	    const double eps = 1e-6;
+	    Eigen::Matrix<double, 2, 3> num_jacobian_ij;
+	    for (int k = 0; k < 3; k++)
+	    {
+	    	Eigen::Quaterniond Q_ij_new(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+
+	        int b = k % 3;
+	        Eigen::Vector3d delta = Eigen::Vector3d(b == 0, b == 1, b == 2) * eps;
+
+			Q_ij_new = Q_ij_new * Utility::deltaQ(delta);
+			g_ij = Q_ij_new.inverse() * (-Eigen::Vector3d::UnitZ());
+			g_w = rel_rp * g_ij;
+    		Eigen::Matrix<double, 2, 1> tmp_residual;
+    		tmp_residual.block<2, 1>(0, 0) = g_w.segment(0, 2);
+    		tmp_residual = sqrt_info * tmp_residual;
+
+	        num_jacobian_ij.col(k) = (tmp_residual - residual) / eps;
+	    }
+	    std::cout << num_jacobian_ij << std::endl;
+    }
+
+    Eigen::Quaterniond rel_rp;
+    Eigen::Matrix<double, 2, 2> sqrt_info;
+};
+
+class RelYawFactor : public ceres::SizedCostFunction<1, 7>
+{
+  public:
+    RelYawFactor(const Eigen::Vector3d &_rel_yaw, const Eigen::Matrix<double, 1, 1> _sqrt_info) : rel_yaw(_rel_yaw), sqrt_info(_sqrt_info) {}
+
+    virtual bool Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
+    {
+    	Eigen::Quaterniond Q_ij(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+		Eigen::Vector3d yaw_ij = Q_ij * rel_yaw;
+    	Eigen::Map<Eigen::Matrix<double, 1, 1>> residual(residuals);
+    	residual.block<1, 1>(0, 0) = yaw_ij.segment(1, 1);
+    	residual = sqrt_info * residual;
+
+    	if (jacobians)
+    	{
+    		if (jacobians[0])
+    		{
+    		    Eigen::Map<Eigen::Matrix<double, 1, 7, Eigen::RowMajor>> jacobian_orientation_ij(jacobians[0]);
+    		    jacobian_orientation_ij.setZero();
+				Eigen::Matrix<double, 3, 3> jacobian_orientation = -Q_ij.toRotationMatrix() * Utility::skewSymmetric(rel_yaw);
+        		Eigen::Matrix<double, 1, 3> reduce(1, 3);
+				reduce << 0.0, 1.0, 0.0;
+				jacobian_orientation_ij.block<1, 3>(0, 3) = sqrt_info * reduce * jacobian_orientation;
+    		}
+    	}
+    	return true;
+    }
+
+    void check(double **parameters)
+    {
+	    double *res = new double[1];
+	    double **jaco = new double *[1];
+	    jaco[0] = new double[1 * 7];
+	    Evaluate(parameters, res, jaco);
+	    puts("check begins");
+
+	    puts("my");
+
+	    std::cout << Eigen::Map<Eigen::Matrix<double, 1, 1>>(res).transpose() << std::endl
+	              << std::endl;
+	    std::cout << Eigen::Map<Eigen::Matrix<double, 1, 7, Eigen::RowMajor>>(jaco[0]) << std::endl
+	              << std::endl;
+
+		Eigen::Quaterniond Q_ij(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+		Eigen::Vector3d yaw_ij = Q_ij * rel_yaw;
+    	Eigen::Matrix<double, 1, 1> residual;
+    	residual.block<1, 1>(0, 0) = yaw_ij.segment(1, 1);
+    	residual = sqrt_info * residual;
+
+	    puts("num");
+	    std::cout << residual.transpose() << std::endl;
+
+	    const double eps = 1e-6;
+	    Eigen::Matrix<double, 1, 3> num_jacobian_ij;
+	    for (int k = 0; k < 3; k++)
+	    {
+	    	Eigen::Quaterniond Q_ij_new(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+
+	        int b = k % 3;
+	        Eigen::Vector3d delta = Eigen::Vector3d(b == 0, b == 1, b == 2) * eps;
+
+			Q_ij_new = Q_ij_new * Utility::deltaQ(delta);
+			yaw_ij = Q_ij_new * rel_yaw;
+    		Eigen::Matrix<double, 1, 1> tmp_residual;
+    		tmp_residual.block<1, 1>(0, 0) = yaw_ij.segment(1, 1);
+    		tmp_residual = sqrt_info * tmp_residual;
+
+	        num_jacobian_ij.col(k) = (tmp_residual - residual) / eps;
+	    }
+	    std::cout << num_jacobian_ij << std::endl;
+    }
+
+    Eigen::Vector3d rel_yaw;
+    Eigen::Matrix<double, 1, 1> sqrt_info;
 };

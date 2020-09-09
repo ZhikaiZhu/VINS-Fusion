@@ -79,6 +79,7 @@ target_link_libraries(kitti_odom_test vins_lib)
 add_executable(kitti_gps_test src/KITTIGPSTest.cpp)
 target_link_libraries(kitti_gps_test vins_lib) 
 
-add_executable(test src/test.cpp)
-target_link_libraries(test vins_lib) 
+add_executable(jaco_test src/test.cpp)
+target_link_libraries(jaco_test vins_lib) 
+
 
