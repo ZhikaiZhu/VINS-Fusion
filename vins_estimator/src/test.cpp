@@ -39,12 +39,12 @@ int main(int argc, char** argv)
     para_Pose[1] = new double[7];
     Eigen::Map<Eigen::Matrix<double, 7, 1>> p1(para_Pose[0]);
     Eigen::Map<Eigen::Matrix<double, 7, 1>> p2(para_Pose[1]);
-    //Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::MatrixXd::Identity(6, 6);
+    Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::MatrixXd::Identity(6, 6);
 
     //generate different rel_P, rel_Q
     Eigen::Vector3d rel_P(4.0, 4.0, 5.0);
     Eigen::Quaterniond rel_Q(1.0, 0.0, 0.0, 0.0);
-    //std::shared_ptr<RelativePoseFactor> rp = std::make_shared<RelativePoseFactor>(z_rel_P, z_rel_Q, sqrt_info);
+    std::shared_ptr<RelativePoseFactor> rp = std::make_shared<RelativePoseFactor>(rel_P, rel_Q, sqrt_info);
     //std::shared_ptr<AbsPositionFactor> ap = std::make_shared<AbsPositionFactor>(z_rel_P, Eigen::MatrixXd::Identity(3, 3));
     std::shared_ptr<RelPositionFactor> rel_p = std::make_shared<RelPositionFactor>(rel_P, Eigen::MatrixXd::Identity(3, 3));
     std::shared_ptr<RelRollPitchFactor> rel_rpf = std::make_shared<RelRollPitchFactor>(rel_Q, Eigen::MatrixXd::Identity(2, 2));
@@ -130,6 +130,8 @@ int main(int argc, char** argv)
         p2.block<4, 1>(3, 0) = Eigen::MatrixXd::Random(4, 1);
         p2.normalize();
         p2.block<3, 1>(0, 0) = Eigen::MatrixXd::Random(3, 1);
+        std::cout << "Checking pose position\n" << std::endl;
+        rp->check(para_Pose);
         std::cout << "Checking relative position\n" << std::endl;
         rel_p->check(para_Pose);
         std::cout << "Checking relative rollpitch position\n" << std::endl;

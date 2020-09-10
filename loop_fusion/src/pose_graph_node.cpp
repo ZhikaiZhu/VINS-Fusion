@@ -342,20 +342,12 @@ void process()
                 {
                     for (int j = 0; j < 6; ++j) 
                     {
-                        if (i < 3 && j < 3)
-                        {
-                            RPF.relP_cov_inv(i, j) = odom.pose.covariance[i * 6 + j];
-                        }
-                        else if (i == 3 && j == 3)
-                        {
-                            RPF.relYaw_cov_inv(i - 3, j - 3) = odom.pose.covariance[i * 6 + j];
-                        }
-                        else if (i >= 4 && j >= 4)
-                        {
-                            RPF.relRP_cov_inv(i - 4, j - 4) = odom.pose.covariance[i * 6 + j];
-                        }
+                        RPF.cov(i, j) = odom.pose.covariance[6 * i + j];
                     }
                 }
+                RPF.relP_cov_inv = RPF.cov.block<3, 3>(0, 0).inverse();
+                RPF.relYaw_cov_inv = RPF.cov.block<1, 1>(3, 3).inverse();
+                RPF.relRP_cov_inv = RPF.cov.block<2, 2>(4, 4).inverse();
                 //tmp_rel_pose_factors.emplace_back(RPF);
                 posegraph.rel_pose_factors.emplace_back(RPF);
             }

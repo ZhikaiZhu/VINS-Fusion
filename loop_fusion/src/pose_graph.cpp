@@ -611,7 +611,7 @@ void PoseGraph::optimize4DoF()
                 auto factor = rel_pose_factors[i];
                 if (!keyframemap_local.count(factor.Header_i)) continue;
                 if (!keyframemap_local.count(factor.Header_j)) continue;
-                Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>(factor.cov_inv).matrixL().transpose();
+                Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>(factor.cov).matrixL().transpose();
                 ceres::CostFunction* f_rp = new RelativePoseFactor(factor.z_rel_P, factor.z_rel_Q, sqrt_info);
                 problem.AddResidualBlock(f_rp, NULL, para_pose[keyframemap_local.at(factor.Header_i)], para_pose[keyframemap_local.at(factor.Header_j)]);
                 rel_pose_cnt++;
