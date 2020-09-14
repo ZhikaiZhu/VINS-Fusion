@@ -14,7 +14,8 @@ struct RelPoseFactor
     double Header_i, Header_j;
     Eigen::Vector3d z_rel_P;
     Eigen::Quaterniond z_rel_Q;
-    Eigen::Matrix<double, 6, 6> cov;
+	Eigen::Vector3d z_rel_Yaw;
+    Eigen::Matrix<double, 6, 6> cov_inv;
 
 	Eigen::Matrix<double, 3, 3> relP_cov_inv;
 	Eigen::Matrix<double, 2, 2> relRP_cov_inv;

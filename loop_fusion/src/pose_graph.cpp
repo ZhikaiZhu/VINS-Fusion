@@ -513,7 +513,7 @@ void PoseGraph::optimize4DoF()
                 Vector3d tmp_t;
                 (*it)->getVioPose(tmp_t, tmp_r);
                 tmp_q = tmp_r;
-                t_array[i][0] = tmp_t(0);
+                /*t_array[i][0] = tmp_t(0);
                 t_array[i][1] = tmp_t(1);
                 t_array[i][2] = tmp_t(2);
                 q_array[i] = tmp_q;
@@ -521,7 +521,7 @@ void PoseGraph::optimize4DoF()
                 Vector3d euler_angle = Utility::R2ypr(tmp_q.toRotationMatrix());
                 euler_array[i][0] = euler_angle.x();
                 euler_array[i][1] = euler_angle.y();
-                euler_array[i][2] = euler_angle.z(); 
+                euler_array[i][2] = euler_angle.z(); */
 
                 sequence_array[i] = (*it)->sequence;
 
@@ -546,7 +546,7 @@ void PoseGraph::optimize4DoF()
                 }
 
                 //add edge
-                for (int j = 1; j < 5; j++)
+                for (int j = 1; j < 7; j++)
                 {
                   if (i - j >= 0 && sequence_array[i] == sequence_array[i-j])
                   {
@@ -560,6 +560,18 @@ void PoseGraph::optimize4DoF()
                                             t_array[i-j], 
                                             euler_array[i], 
                                             t_array[i]); */
+
+                    // test with new factors          
+                    /*Vector3d relative_t(para_pose[i][0] - para_pose[i-j][0], para_pose[i][1] - para_pose[i-j][1], para_pose[i][2] - para_pose[i-j][2]);
+                    Quaterniond Q_i(para_pose[i-j][6], para_pose[i-j][3], para_pose[i-j][4], para_pose[i-j][5]);
+                    Quaterniond Q_j(para_pose[i][6], para_pose[i][3], para_pose[i][4], para_pose[i][5]);
+                    relative_t = Q_i.inverse() * relative_t;
+                    Quaterniond relative_q = Q_i.inverse() * Q_j;
+                    Eigen::Matrix<double, 6, 6> sqrt_info;
+                    sqrt_info.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity() * 10;
+                    sqrt_info.block<3, 3>(3, 3) = Eigen::Matrix<double, 3, 3>::Identity() * 100;
+                    ceres::CostFunction* cost_function = new RelativePoseFactor(relative_t, relative_q, sqrt_info);
+                    problem.AddResidualBlock(cost_function, loss_function, para_pose[i-j], para_pose[i]); */
                     seq_edge++;
                   }
                 }
@@ -582,7 +594,9 @@ void PoseGraph::optimize4DoF()
                                                                   t_array[i]); */
                     Quaterniond relative_q;
                     relative_q = (*it)->getLoopRelativeQ();
-                    Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::Matrix<double, 6, 6>::Identity() * 1000.0;
+                    Eigen::Matrix<double, 6, 6> sqrt_info;
+                    sqrt_info.block<4, 4>(0, 0) = Eigen::Matrix<double, 4, 4>::Identity() * 10.0;
+                    sqrt_info.block<2, 2>(4, 4) = Eigen::Matrix<double, 2, 2>::Identity() * 10.0;
                     ceres::CostFunction* cost_function = new RelativePoseFactor(relative_t, relative_q, sqrt_info);
                     problem.AddResidualBlock(cost_function, loss_function, para_pose[connected_index], para_pose[i]); 
                 }
@@ -603,7 +617,7 @@ void PoseGraph::optimize4DoF()
                 ceres::CostFunction* f_rp = new RollPitchFactor(factor.z_rp, sqrt_info);
                 problem.AddResidualBlock(f_rp, NULL, para_pose[keyframemap_local.at(factor.Header_i)]);
                 rp_cnt++;
-            } */
+            }*/
 
             int rel_pose_size = rel_pose_factors.size();
             for (auto i{0}; i < rel_pose_size; i++)
@@ -611,11 +625,30 @@ void PoseGraph::optimize4DoF()
                 auto factor = rel_pose_factors[i];
                 if (!keyframemap_local.count(factor.Header_i)) continue;
                 if (!keyframemap_local.count(factor.Header_j)) continue;
-                Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>(factor.cov).matrixL().transpose();
-                ceres::CostFunction* f_rp = new RelativePoseFactor(factor.z_rel_P, factor.z_rel_Q, sqrt_info);
-                problem.AddResidualBlock(f_rp, NULL, para_pose[keyframemap_local.at(factor.Header_i)], para_pose[keyframemap_local.at(factor.Header_j)]);
+
+                Eigen::Matrix<double, 3, 3> relP_sqrt_info = Eigen::LLT<Eigen::Matrix<double, 3, 3>>(factor.relP_cov_inv).matrixL().transpose();
+                //Eigen::Matrix<double, 3, 3> relP_sqrt_info = Eigen::MatrixXd::Identity(3, 3);
+                ceres::CostFunction* f_rel_pos = new RelPositionFactor(factor.z_rel_P, relP_sqrt_info);
+                problem.AddResidualBlock(f_rel_pos, NULL, para_pose[keyframemap_local.at(factor.Header_i)], para_pose[keyframemap_local.at(factor.Header_j)]);
+
+                if (factor.relYaw_cov_inv.trace() >= 1.0)
+                {
+                    Eigen::Matrix<double, 1, 1> relY_sqrt_info = Eigen::LLT<Eigen::Matrix<double, 1, 1>>(factor.relYaw_cov_inv).matrixL().transpose();
+                    //Eigen::Matrix<double, 1, 1> relY_sqrt_info = Eigen::MatrixXd::Identity(1, 1);
+                    ceres::CostFunction* f_rel_yaw = new RelYawFactor(factor.z_rel_Yaw, relY_sqrt_info);
+                    problem.AddResidualBlock(f_rel_yaw, NULL, para_pose[keyframemap_local.at(factor.Header_i)], para_pose[keyframemap_local.at(factor.Header_j)]);
+                }
+                
+                /*if (factor.relRP_cov_inv.trace() / 2.0 >= 1.0)
+                {
+                    Eigen::Matrix<double, 2, 2> relRP_sqrt_info = Eigen::LLT<Eigen::Matrix<double, 2, 2>>(factor.relRP_cov_inv).matrixL().transpose();
+                    //Eigen::Matrix<double, 2, 2> relRP_sqrt_info = Eigen::MatrixXd::Identity(2, 2);
+                    ceres::CostFunction* f_rel_rp = new RelRollPitchFactor(factor.z_rel_Q, relRP_sqrt_info);
+                    problem.AddResidualBlock(f_rel_rp, NULL, para_pose[keyframemap_local.at(factor.Header_i)], para_pose[keyframemap_local.at(factor.Header_j)]);
+                } */
+                
                 rel_pose_cnt++;
-            }
+            } 
 
             cout << "The number of sequential edges are: " << seq_edge << endl;
             cout << "The number of relative factors are: " << rel_pose_cnt << endl;

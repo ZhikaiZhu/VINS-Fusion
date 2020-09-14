@@ -320,6 +320,7 @@ void process()
             //tmp_rp_factors.emplace_back(RollPitchF);
             posegraph.rp_factors.emplace_back(RollPitchF);
             
+            Eigen::Matrix<double, 6, 6> cov_inv;
             for (auto i{0}; i < nf_msg->related_keyframes.size(); ++i) 
             {
                 nav_msgs::Odometry odom = nf_msg->related_keyframes[i];
@@ -337,17 +338,18 @@ void process()
                 RPF.Header_i = time_stamp; // different from Header[0]
                 RPF.Header_j = time_stamp_j;
                 RPF.z_rel_P = P_w_ij;
+                RPF.z_rel_Yaw = Q_ij.inverse() * Eigen::Vector3d::UnitX();
                 RPF.z_rel_Q = Q_ij;
                 for (int i = 0; i < 6; ++i) 
                 {
                     for (int j = 0; j < 6; ++j) 
                     {
-                        RPF.cov(i, j) = odom.pose.covariance[6 * i + j];
+                        cov_inv(i, j) = odom.pose.covariance[6 * i + j];
                     }
                 }
-                RPF.relP_cov_inv = RPF.cov.block<3, 3>(0, 0).inverse();
-                RPF.relYaw_cov_inv = RPF.cov.block<1, 1>(3, 3).inverse();
-                RPF.relRP_cov_inv = RPF.cov.block<2, 2>(4, 4).inverse();
+                RPF.relP_cov_inv = cov_inv.block<3, 3>(0, 0);
+                RPF.relYaw_cov_inv = cov_inv.block<1, 1>(3, 3);
+                RPF.relRP_cov_inv = cov_inv.block<2, 2>(4, 4);
                 //tmp_rel_pose_factors.emplace_back(RPF);
                 posegraph.rel_pose_factors.emplace_back(RPF);
             }

@@ -1848,13 +1848,13 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo* marginalization_i
             RelPF.Header_i = Headers[0];
             RelPF.Header_j = Headers[keyframe_addr_to_idx.at(kf)];
             RelPF.z_rel_P = P_w_ij;
+            RelPF.z_rel_Yaw = z_rel_yaw;
             RelPF.z_rel_Q = Q_ij;
             //RelPF.cov_inv.setIdentity();
             //cov_new.ldlt().solveInPlace(RelPF.cov_inv);
-            /*RelPF.relP_cov_inv = cov_new.block<3, 3>(0, 0).inverse();
+            RelPF.relP_cov_inv = cov_new.block<3, 3>(0, 0).inverse();
             RelPF.relYaw_cov_inv = cov_new.block<1, 1>(3, 3).inverse();
-            RelPF.relRP_cov_inv = cov_new.block<2, 2>(4, 4).inverse(); */
-            RelPF.cov = cov_new;
+            RelPF.relRP_cov_inv = cov_new.block<2, 2>(4, 4).inverse(); 
             rel_pose_factors.emplace_back(RelPF);
 
             rel_odom.header.stamp = ros::Time(RelPF.Header_j);
@@ -1870,9 +1870,29 @@ void Estimator::extract_nonlinear_factors(MarginalizationInfo* marginalization_i
             {
                 for (int j = 0; j < 6; j++)
                 {
-                    rel_odom.pose.covariance[i * 6 + j] = RelPF.cov(i, j);
+                    if (i < 3 && j < 3)
+                    {
+                        rel_odom.pose.covariance[i * 6 + j] = RelPF.relP_cov_inv(i, j);
+                    }
+                    else if (i == 3 && j == 3)
+                    {
+                        rel_odom.pose.covariance[i * 6 + j] = RelPF.relYaw_cov_inv(i - 3, j - 3);
+                    }
+                    else if (i > 3 && j > 3)
+                    {
+                        rel_odom.pose.covariance[i * 6 + j] = RelPF.relRP_cov_inv(i - 4, j - 4);
+                    }
+                    
                 }
             } 
+
+            /*for (int i = 0; i < 6; i++)
+            {
+                for (int j = 0; j < 6; j++)
+                {
+                    rel_odom.pose.covariance[i * 6 + j] = RelPF.cov_inv(i, j);
+                }
+            } */
             nf.related_keyframes.emplace_back(rel_odom);
         }
     }
