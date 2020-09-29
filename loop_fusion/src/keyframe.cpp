@@ -498,6 +498,45 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 	    	             relative_yaw;
 	    	//cout << "pnp relative_t " << relative_t.transpose() << endl;
 	    	//cout << "pnp relative_q " << relative_q.w() << " " << relative_q.vec().transpose() << endl;
+
+			// calculate loop information matrix
+			const int n = static_cast<int>(matched_2d_old_norm.size());
+
+			Eigen::MatrixXd J_1, I;
+			Eigen::Matrix<double, 6, 6> J_2, J_2_inv;
+			J_1.resize(2 * n, 6);
+			I.resize(2 * n, 2 * n);
+
+			J_1.setZero();
+			I.setIdentity();
+			J_2.setZero();
+			J_2_inv.setIdentity();
+
+			for (int i = 0; i < n; i++)
+			{
+				cv::Point3d p_3d(matched_3d.at(i));
+				Eigen::Vector3d p = Eigen::Vector3d(p_3d.x, p_3d.y, p_3d.z);
+				Eigen::Vector3d p_w_i = PnP_R_old * p + PnP_T_old;
+				Eigen::Matrix<double, 2, 3> reduce(2, 3);
+				reduce << 1 / p_w_i(2), 0.0, -p_w_i(0) / ( p_w_i(2) * p_w_i(2) ),
+						  0.0, 1 / p_w_i(2), -p_w_i(1) / ( p_w_i(2) * p_w_i(2) );
+				J_1.block<2, 3>(2 * i, 0) = -reduce;
+				J_1.block<2, 3>(2 * i, 3) = reduce * PnP_R_old * Utility::skewSymmetric( p );
+			}
+
+			J_2.block<3, 3>(0, 0) = -PnP_R_old.transpose();
+			J_2.block<3, 3>(0, 3) = Utility::skewSymmetric(relative_t);
+			J_2.block<3, 3>(3, 3) = -origin_vio_R.transpose() * PnP_R_old;
+			J_2.ldlt().solveInPlace(J_2_inv);
+
+			loop_cov_inv = J_2_inv.transpose() * J_1.transpose() * (pow(1.0 / 1.5, 2.0) * I) * J_1 * J_2_inv; 
+
+            std::cout << "point size : " << n << std::endl;
+			std::cout << index << std::endl;
+			std::cout << std::endl;
+			std::cout << loop_cov_inv << std::endl;
+			std::cout << std::endl;
+
 	        return true;
 	    }
 	}

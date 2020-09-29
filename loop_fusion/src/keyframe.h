@@ -111,5 +111,8 @@ public:
 	bool has_loop;
 	int loop_index;
 	Eigen::Matrix<double, 8, 1 > loop_info;
+
+	// loop information matrix
+	Eigen::Matrix<double, 6, 6> loop_cov_inv;
 };
 

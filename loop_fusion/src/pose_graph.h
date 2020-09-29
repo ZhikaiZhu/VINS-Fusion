@@ -81,6 +81,11 @@ public:
 	int rel_pose_cnt;
 	int seq_edge;
 
+	// test for loop error
+	//bool is_first_loop;
+	//int start_loop_index;
+	//int end_loop_index;
+
 
 private:
 	int detectLoop(KeyFrame* keyframe, int frame_index);
