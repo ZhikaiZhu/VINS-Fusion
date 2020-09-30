@@ -487,13 +487,14 @@ void PoseGraph::optimize4DoF()
             double euler_array[max_length][3]; */
             double sequence_array[max_length]; 
             double para_pose[max_length][7];
+            double para_switch[max_length][1];
 
             ceres::Problem problem;
             ceres::Solver::Options options;
             options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
             //options.minimizer_progress_to_stdout = true;
             //options.max_solver_time_in_seconds = SOLVER_TIME * 3;
-            options.max_num_iterations = 13;
+            options.max_num_iterations = 17;
             ceres::Solver::Summary summary;
             ceres::LossFunction *loss_function;
             loss_function = new ceres::HuberLoss(0.1);
@@ -501,6 +502,7 @@ void PoseGraph::optimize4DoF()
             // 指定Yaw角优化变量是如何进行迭代更新的
             //ceres::LocalParameterization* angle_local_parameterization = AngleLocalParameterization::Create();
             ceres::LocalParameterization* local_parameterization = new PLParameterization();
+            ceres::LocalParameterization* switch_local_parameterization = SwitchableLocalParameterization::Create();
 
             list<KeyFrame*>::iterator it;
             std::unordered_map<double, int> keyframemap_local;
@@ -525,6 +527,7 @@ void PoseGraph::optimize4DoF()
                 //(*it)->getVioPose(tmp_t, tmp_r);
                 (*it)->getPose(tmp_t, tmp_r);
                 tmp_q = tmp_r;
+                double s = 1.0;
                 /*t_array[i][0] = tmp_t(0);
                 t_array[i][1] = tmp_t(1);
                 t_array[i][2] = tmp_t(2);
@@ -544,11 +547,12 @@ void PoseGraph::optimize4DoF()
                 para_pose[i][4] = tmp_q.y();
                 para_pose[i][5] = tmp_q.z();
                 para_pose[i][6] = tmp_q.w(); 
+                para_switch[i][0] = s;
 
                 //problem.AddParameterBlock(euler_array[i], 1, angle_local_parameterization);
                 //problem.AddParameterBlock(t_array[i], 3);
                 problem.AddParameterBlock(para_pose[i], 7, local_parameterization);
-
+                problem.AddParameterBlock(para_switch[i], 1, switch_local_parameterization);
                 if ((*it)->index == first_looped_index || (*it)->sequence == 0)
                 {   
                     //problem.SetParameterBlockConstant(euler_array[i]);
@@ -609,8 +613,10 @@ void PoseGraph::optimize4DoF()
                     //Eigen::Matrix<double, 6, 6> sqrt_info;
                     //sqrt_info.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity() * 100.0;
                     //sqrt_info.block<3, 3>(3, 3) = Eigen::Matrix<double, 3, 3>::Identity() * 1000.0;
-                    ceres::CostFunction* cost_function = new RelativePoseFactor(relative_t, relative_q, sqrt_info);
-                    problem.AddResidualBlock(cost_function, loss_function, para_pose[connected_index], para_pose[i]); 
+                    ceres::CostFunction* cost_function = new RelPoseWithSwitchFactor(relative_t, relative_q, sqrt_info);
+                    problem.AddResidualBlock(cost_function, NULL, para_pose[connected_index], para_pose[i], para_switch[i]); 
+                    ceres::CostFunction* switch_prior = SwitchPriorError::Create(1.0, 3.0);
+                    problem.AddResidualBlock(switch_prior, NULL, para_switch[i]);
                 
                 }
                 
@@ -621,7 +627,7 @@ void PoseGraph::optimize4DoF()
             m_keyframelist.unlock();
 
             //m_nf_buf.lock();
-            int rp_size = rp_factors.size();
+            /*int rp_size = rp_factors.size();
             for (auto i{0}; i < rp_size; i++)
             {
                 auto factor = rp_factors[i];
@@ -630,7 +636,7 @@ void PoseGraph::optimize4DoF()
                 ceres::CostFunction* f_rp = new RollPitchFactor(factor.z_rp, sqrt_info);
                 problem.AddResidualBlock(f_rp, NULL, para_pose[keyframemap_local.at(factor.Header_i)]);
                 rp_cnt++;
-            } 
+            } */
 
             int rel_pose_size = rel_pose_factors.size();
             for (auto i{0}; i < rel_pose_size; i++)

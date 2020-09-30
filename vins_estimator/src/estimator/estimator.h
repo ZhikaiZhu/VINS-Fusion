@@ -38,6 +38,7 @@
 #include "../factor/projectionOneFrameTwoCamFactor.h"
 #include "../factor/absolute_pose_factor.h"
 #include "../factor/relative_pose_factor.h"
+#include "../factor/relative_pose_with_switch_factor.h"
 #include "../featureTracker/feature_tracker.h"
 
 namespace Eigen

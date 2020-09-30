@@ -34,17 +34,20 @@ int main(int argc, char** argv)
 
     } */
     
-    double** para_Pose = new double* [2];
+    double** para_Pose = new double* [3];
     para_Pose[0] = new double[7];
     para_Pose[1] = new double[7];
+    para_Pose[2] = new double[1];
     Eigen::Map<Eigen::Matrix<double, 7, 1>> p1(para_Pose[0]);
     Eigen::Map<Eigen::Matrix<double, 7, 1>> p2(para_Pose[1]);
+    para_Pose[2][0] = 1.0;
     Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::MatrixXd::Identity(6, 6);
 
     //generate different rel_P, rel_Q
     Eigen::Vector3d rel_P(4.0, 4.0, 5.0);
     Eigen::Quaterniond rel_Q(1.0, 0.0, 0.0, 0.0);
     std::shared_ptr<RelativePoseFactor> rp = std::make_shared<RelativePoseFactor>(rel_P, rel_Q, sqrt_info);
+    std::shared_ptr<RelPoseWithSwitchFactor> rel_psf = std::make_shared<RelPoseWithSwitchFactor>(rel_P, rel_Q, sqrt_info);
     //std::shared_ptr<AbsPositionFactor> ap = std::make_shared<AbsPositionFactor>(z_rel_P, Eigen::MatrixXd::Identity(3, 3));
     std::shared_ptr<RelPositionFactor> rel_p = std::make_shared<RelPositionFactor>(rel_P, Eigen::MatrixXd::Identity(3, 3));
     std::shared_ptr<RelRollPitchFactor> rel_rpf = std::make_shared<RelRollPitchFactor>(rel_Q, Eigen::MatrixXd::Identity(2, 2));
@@ -138,10 +141,13 @@ int main(int argc, char** argv)
         rel_rpf->check(para_Pose);
         std::cout << "Checking relative yaw position\n" << std::endl;
         rel_yf->check(para_Pose);
+        std::cout << "Checking relative pose with switch factor\n" << std::endl;
+        rel_psf->check(para_Pose);
     }
 
     delete[] para_Pose[0];
     delete[] para_Pose[1];
+    delete[] para_Pose[2];
     delete[] para_Pose;
     return 0;
 }

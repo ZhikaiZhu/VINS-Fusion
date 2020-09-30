@@ -353,3 +353,56 @@ struct RelativeRTError
 	double t_var, q_var;
 
 };
+
+
+// switchable constraint
+class SwitchableLocalParameterization 
+{
+public:
+
+  template <typename T>
+  bool operator()(const T* s, const T* delta, T* s_plus_delta) const 
+  {
+	  if (*s + *delta > T(1.0))
+	  {
+		  *s_plus_delta = T(1.0);
+	  }
+	  else if (*s + *delta < T(0.0))
+	  {
+		  *s_plus_delta = T(0.0);
+	  }
+	  else
+	  {
+		  *s_plus_delta = *s + *delta;
+	  }
+
+      return true;
+  }
+
+  static ceres::LocalParameterization* Create() 
+  {
+	  return (new ceres::AutoDiffLocalParameterization<SwitchableLocalParameterization, 1, 1>);
+  }
+};
+
+struct SwitchPriorError
+{
+	SwitchPriorError(double gamma, double sqrt_info): gamma(gamma), sqrt_info(sqrt_info) {}
+
+	template <typename T>
+	bool operator()(const T* const s, T* residuals) const
+	{
+		residuals[0] = (T(gamma) - s[0]) * T(sqrt_info);
+
+		return true;
+	}
+
+	static ceres::CostFunction* Create(const double gamma, const double sqrt_info) 
+	{
+		return (new ceres::AutoDiffCostFunction<SwitchPriorError, 1, 1>(
+				new SwitchPriorError(gamma, sqrt_info)));
+	}
+
+	double gamma;
+	double sqrt_info;
+};
