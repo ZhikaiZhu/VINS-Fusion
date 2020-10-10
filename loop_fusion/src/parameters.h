@@ -34,4 +34,8 @@ extern int COL;
 extern std::string VINS_RESULT_PATH;
 extern int DEBUG_IMAGE;
 
+extern double SWITCH_INIT;
+extern double SWITCH_SQRT_INFO;
+extern double LOOP_SCALE;
+
 

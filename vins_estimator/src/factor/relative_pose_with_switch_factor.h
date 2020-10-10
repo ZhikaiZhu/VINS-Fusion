@@ -187,7 +187,21 @@ public:
         Eigen::Matrix<double, 6, 1> num_jacobian_switch;
 	    for (int k = 0; k < 1; k++)
 	    {
-	    	double S_ij_new{parameters[2][0]};
+	    	Eigen::Vector3d P_i(parameters[0][0], parameters[0][1], parameters[0][2]);
+    	    Eigen::Quaterniond Q_i(parameters[0][6], parameters[0][3], parameters[0][4], parameters[0][5]);
+
+		    Eigen::Vector3d P_j(parameters[1][0], parameters[1][1], parameters[1][2]);
+    	    Eigen::Quaterniond Q_j(parameters[1][6], parameters[1][3], parameters[1][4], parameters[1][5]);
+
+            double S_ij_new{parameters[2][0]};
+
+            Eigen::Vector3d P_w_ij = P_j - P_i;
+
+		    Eigen::Quaterniond Q_i_inverse = Q_i.inverse();
+
+		    Eigen::Vector3d P_i_ij = Q_i_inverse * P_w_ij;
+
+		    Eigen::Quaterniond Q_ij = Q_i_inverse * Q_j;
 
             S_ij_new += eps;
 

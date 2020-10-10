@@ -58,6 +58,10 @@ int ROW;
 int COL;
 int DEBUG_IMAGE;
 
+double SWITCH_INIT;
+double SWITCH_SQRT_INFO;
+double LOOP_SCALE;
+
 camodocal::CameraPtr m_camera;
 Eigen::Vector3d tic;
 Eigen::Matrix3d qic;
@@ -522,6 +526,9 @@ int main(int argc, char **argv)
 
     ROW = fsSettings["image_height"];
     COL = fsSettings["image_width"];
+    SWITCH_INIT = fsSettings["switch_init"];
+    SWITCH_SQRT_INFO = fsSettings["switch_sqrt_info"];
+    LOOP_SCALE = fsSettings["loop_scale"];
     std::string pkg_path = ros::package::getPath("loop_fusion");
     string vocabulary_file = pkg_path + "/../support_files/brief_k10L6.bin";
     cout << "vocabulary_file" << vocabulary_file << endl;

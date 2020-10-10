@@ -40,7 +40,7 @@ int main(int argc, char** argv)
     para_Pose[2] = new double[1];
     Eigen::Map<Eigen::Matrix<double, 7, 1>> p1(para_Pose[0]);
     Eigen::Map<Eigen::Matrix<double, 7, 1>> p2(para_Pose[1]);
-    para_Pose[2][0] = 1.0;
+    Eigen::Map<Eigen::Matrix<double, 1, 1>> p3(para_Pose[2]);
     Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::MatrixXd::Identity(6, 6);
 
     //generate different rel_P, rel_Q
@@ -133,6 +133,7 @@ int main(int argc, char** argv)
         p2.block<4, 1>(3, 0) = Eigen::MatrixXd::Random(4, 1);
         p2.normalize();
         p2.block<3, 1>(0, 0) = Eigen::MatrixXd::Random(3, 1);
+        p3.block<1, 1>(0, 0) = Eigen::Matrix<double, 1, 1>(0.5);
         std::cout << "Checking pose position\n" << std::endl;
         rp->check(para_Pose);
         std::cout << "Checking relative position\n" << std::endl;

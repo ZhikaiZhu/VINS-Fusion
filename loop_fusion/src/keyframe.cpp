@@ -45,6 +45,7 @@ KeyFrame::KeyFrame(double _time_stamp, int _index, Vector3d &_vio_T_w_i, Matrix3
 	has_fast_point = false;
 	loop_info << 0, 0, 0, 0, 0, 0, 0, 0;
 	sequence = _sequence;
+	s = SWITCH_INIT;
 	computeWindowBRIEFPoint();
 	computeBRIEFPoint();
 	if(!DEBUG_IMAGE)
@@ -500,7 +501,7 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 	    	//cout << "pnp relative_q " << relative_q.w() << " " << relative_q.vec().transpose() << endl;
 
 			// calculate loop information matrix
-			const int n = static_cast<int>(matched_2d_old_norm.size());
+			/*const int n = static_cast<int>(matched_2d_old_norm.size());
 
 			Eigen::MatrixXd J_1, I;
 			Eigen::Matrix<double, 6, 6> J_2, J_2_inv;
@@ -529,13 +530,12 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 			J_2.block<3, 3>(3, 3) = -origin_vio_R.transpose() * PnP_R_old;
 			J_2.ldlt().solveInPlace(J_2_inv);
 
-			loop_cov_inv = J_2_inv.transpose() * J_1.transpose() * (pow(1.0 / 1.5, 2.0) * I) * J_1 * J_2_inv; 
+			loop_cov_inv = J_2_inv.transpose() * J_1.transpose() * (pow(200.0 / 1.5, 2.0) * I) * J_1 * J_2_inv; 
 
-            std::cout << "point size : " << n << std::endl;
 			std::cout << index << std::endl;
 			std::cout << std::endl;
 			std::cout << loop_cov_inv << std::endl;
-			std::cout << std::endl;
+			std::cout << std::endl; */
 
 	        return true;
 	    }
@@ -621,5 +621,3 @@ BriefExtractor::BriefExtractor(const std::string &pattern_file)
 
   m_brief.importPairs(x1, y1, x2, y2);
 }
-
-

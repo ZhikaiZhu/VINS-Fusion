@@ -113,6 +113,15 @@ public:
 	Eigen::Matrix<double, 8, 1 > loop_info;
 
 	// loop information matrix
-	Eigen::Matrix<double, 6, 6> loop_cov_inv;
+	//Eigen::Matrix<double, 6, 6> loop_cov_inv;
+	double s;
+	void getSwitch(double& _s)
+	{
+		_s = s;
+	}
+	void updateSwitch(const double& _s)
+	{
+		s = _s;
+	}
 };
 

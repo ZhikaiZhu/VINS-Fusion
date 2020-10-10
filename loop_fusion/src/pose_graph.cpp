@@ -494,7 +494,7 @@ void PoseGraph::optimize4DoF()
             options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
             //options.minimizer_progress_to_stdout = true;
             //options.max_solver_time_in_seconds = SOLVER_TIME * 3;
-            options.max_num_iterations = 17;
+            options.max_num_iterations = 25;
             ceres::Solver::Summary summary;
             ceres::LossFunction *loss_function;
             loss_function = new ceres::HuberLoss(0.1);
@@ -527,7 +527,8 @@ void PoseGraph::optimize4DoF()
                 //(*it)->getVioPose(tmp_t, tmp_r);
                 (*it)->getPose(tmp_t, tmp_r);
                 tmp_q = tmp_r;
-                double s = 1.0;
+                double tmp_s;
+                (*it)->getSwitch(tmp_s);
                 /*t_array[i][0] = tmp_t(0);
                 t_array[i][1] = tmp_t(1);
                 t_array[i][2] = tmp_t(2);
@@ -547,8 +548,7 @@ void PoseGraph::optimize4DoF()
                 para_pose[i][4] = tmp_q.y();
                 para_pose[i][5] = tmp_q.z();
                 para_pose[i][6] = tmp_q.w(); 
-                para_switch[i][0] = s;
-
+                para_switch[i][0] = tmp_s; 
                 //problem.AddParameterBlock(euler_array[i], 1, angle_local_parameterization);
                 //problem.AddParameterBlock(t_array[i], 3);
                 problem.AddParameterBlock(para_pose[i], 7, local_parameterization);
@@ -558,7 +558,7 @@ void PoseGraph::optimize4DoF()
                     //problem.SetParameterBlockConstant(euler_array[i]);
                     //problem.SetParameterBlockConstant(t_array[i]);
                     problem.SetParameterBlockConstant(para_pose[i]);
-
+                    //problem.SetParameterBlockConstant(para_switch[i]);
                 }
 
                 //add edge
@@ -609,14 +609,16 @@ void PoseGraph::optimize4DoF()
                                                                   t_array[i]); */
                     Quaterniond relative_q;
                     relative_q = (*it)->getLoopRelativeQ();
-                    Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>((*it)->loop_cov_inv).matrixL().transpose();
-                    //Eigen::Matrix<double, 6, 6> sqrt_info;
-                    //sqrt_info.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity() * 100.0;
-                    //sqrt_info.block<3, 3>(3, 3) = Eigen::Matrix<double, 3, 3>::Identity() * 1000.0;
+                    //Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>((*it)->loop_cov_inv).matrixL().transpose();
+                    Eigen::Matrix<double, 6, 6> sqrt_info;
+                    sqrt_info.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity() * LOOP_SCALE;
+                    sqrt_info.block<3, 3>(3, 3) = Eigen::Matrix<double, 3, 3>::Identity() * LOOP_SCALE;
+                    //ceres::CostFunction* cost_function = new RelativePoseFactor(relative_t, relative_q, sqrt_info);
+                    //problem.AddResidualBlock(cost_function, loss_function, para_pose[connected_index], para_pose[i]); 
                     ceres::CostFunction* cost_function = new RelPoseWithSwitchFactor(relative_t, relative_q, sqrt_info);
                     problem.AddResidualBlock(cost_function, NULL, para_pose[connected_index], para_pose[i], para_switch[i]); 
-                    ceres::CostFunction* switch_prior = SwitchPriorError::Create(1.0, 3.0);
-                    problem.AddResidualBlock(switch_prior, NULL, para_switch[i]);
+                    ceres::CostFunction* switch_prior = SwitchPriorError::Create(1.0, SWITCH_SQRT_INFO);
+                    problem.AddResidualBlock(switch_prior, NULL, para_switch[i]); 
                 
                 }
                 
@@ -677,13 +679,13 @@ void PoseGraph::optimize4DoF()
             } 
 
             cout << "The number of sequential edges are: " << seq_edge << endl;
-            cout << "The number of relative factors are: " << rel_pose_cnt << endl;
+            cout << "The number of relative factors are: " << rel_pose_cnt << endl; 
             //rp_factors.clear();
             //rel_pose_factors.clear(); 
             //m_nf_buf.unlock();
 
             ceres::Solve(options, &problem, &summary);
-            //std::cout << summary.BriefReport() << "\n";
+            std::cout << summary.BriefReport() << "\n";
             
             //printf("pose optimization time: %f \n", tmp_t.toc());
             /*
@@ -694,6 +696,8 @@ void PoseGraph::optimize4DoF()
             */
             m_keyframelist.lock();
             i = 0;
+            std::cout << "The value of switchable factors are: " << std::endl;
+            double s_to_zero = 0.0, s_to_one = 0.0, s_sum = 0.0;
             for (it = keyframelist.begin(); it != keyframelist.end(); it++)
             {
                 if ((*it)->index < first_looped_index)
@@ -706,12 +710,33 @@ void PoseGraph::optimize4DoF()
                 tmp_q = Quaterniond(para_pose[i][6], para_pose[i][3], para_pose[i][4], para_pose[i][5]).normalized();
                 Matrix3d tmp_r = tmp_q.toRotationMatrix();
 
-                (*it)-> updatePose(tmp_t, tmp_r);
+                //double tmp_s{para_switch[i][0]};
+                //(*it)->updateSwitch(tmp_s); 
+
+                (*it)->updatePose(tmp_t, tmp_r);
+                
+
+                if ((*it)->has_loop)
+                {
+                    if (para_switch[i][0] < 1e-3)
+                    {
+                        s_to_zero += 1.0;
+                    }
+                    else if (para_switch[i][0] > 0.98)
+                    {
+                        s_to_one += 1.0;
+                    }
+                    s_sum += 1.0;
+                    std::cout << para_switch[i][0] << " ";
+                }
+                
 
                 if ((*it)->index == cur_index)
                     break;
                 i++;
             }
+            std::cout << std::endl;
+            printf("The percentages of s closing to zero and one are: %f %f \n", s_to_zero / s_sum, s_to_one / s_sum);
 
             Vector3d cur_t, vio_t;
             Matrix3d cur_r, vio_r;
