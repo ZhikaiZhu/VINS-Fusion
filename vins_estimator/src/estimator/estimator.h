@@ -174,4 +174,8 @@ class Estimator
 
     bool initFirstPoseFlag;
     bool initThreadFlag;
+
+    // add prior information
+    bool add_prior_flag = true;
+    void addPrior();
 };

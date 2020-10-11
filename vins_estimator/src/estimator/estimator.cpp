@@ -540,6 +540,14 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
         if(!USE_IMU)
             f_manager.initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
         f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
+
+        // Adding prior to make information matrix observable
+        if (add_prior_flag == true)
+        {
+            addPrior();
+            add_prior_flag = false;
+        } 
+
         optimization();
         set<int> removeIndex;
         outliersRejection(removeIndex);
@@ -1608,4 +1616,43 @@ void Estimator::updateLatestStates()
         tmp_gyrBuf.pop();
     }
     mPropagate.unlock();
+}
+
+void Estimator::addPrior()
+{
+    const double cov_inv = 1e8;
+    int size = 7;
+    
+    MarginalizationInfo *marginalization_info = new MarginalizationInfo();
+    vector2double();
+
+    Eigen::Quaterniond Q(para_Pose[WINDOW_SIZE][6], para_Pose[WINDOW_SIZE][3], para_Pose[WINDOW_SIZE][4], para_Pose[WINDOW_SIZE][5]);
+
+    double** jaco = new double* [1];
+    jaco[0] = new double[6 * 6];
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> jacobian(jaco[0]);
+
+    // change the ypr variables in information matrix from global to local
+    jacobian.setZero();
+    jacobian.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity() * sqrt(cov_inv);
+    jacobian.block<3, 3>(3, 3) = sqrt(cov_inv) * Eigen::Matrix<double, 3, 3>::Identity() * Q.toRotationMatrix();
+    marginalization_info->linearized_jacobians = jacobian;
+    marginalization_info->linearized_residuals = Eigen::Matrix<double, 6, 1>::Zero();
+    
+    marginalization_info->n = 6;
+    marginalization_info->m = 0;
+
+    marginalization_info->keep_block_size.clear();
+    marginalization_info->keep_block_idx.clear();
+    marginalization_info->keep_block_data.clear();
+    marginalization_info->keep_block_size.push_back(size);
+    marginalization_info->keep_block_idx.push_back(0);
+    marginalization_info->keep_block_data.push_back(para_Pose[WINDOW_SIZE]);
+    
+    vector<double *> parameter_blocks = marginalization_info->keep_block_data;
+
+    if (last_marginalization_info)
+        delete last_marginalization_info;
+    last_marginalization_info = marginalization_info;
+    last_marginalization_parameter_blocks = parameter_blocks;
 }
