@@ -1148,9 +1148,92 @@ void Estimator::optimization()
     if (marginalization_flag == MARGIN_OLD)
     {
         MarginalizationInfo *marginalization_info = new MarginalizationInfo();
+        MarginalizationInfo *marginalization_info_all_keyframes = new MarginalizationInfo();
         vector2double();
         std::set<int> keyframe_poses_idx;
-        keyframe_poses_idx.insert(0);
+
+        // marginalize all except keyframe
+        // add all optimization variables
+        if (last_marginalization_info && last_marginalization_info->valid)
+        {
+            // construct new marginlization_factor
+            MarginalizationFactor *marginalization_factor = new MarginalizationFactor(last_marginalization_info);
+            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(marginalization_factor, NULL,
+                                                                           last_marginalization_parameter_blocks,
+                                                                           vector<int>{});
+            marginalization_info_all_keyframes->addResidualBlockInfo(residual_block_info);
+        }
+        if(USE_IMU)
+        {
+            for (int i = 0; i < frame_count; i++)
+            {
+                int j = i + 1;
+                keyframe_poses_idx.insert(i);
+                if (pre_integrations[j]->sum_dt > 10.0)
+                    continue;
+                IMUFactor* imu_factor = new IMUFactor(pre_integrations[j]);
+                ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(imu_factor, NULL,
+                                                                           vector<double *>{para_Pose[i], para_SpeedBias[i], para_Pose[j], para_SpeedBias[j]},
+                                                                           vector<int>{1, 3});
+                marginalization_info_all_keyframes->addResidualBlockInfo(residual_block_info);
+            }
+            keyframe_poses_idx.insert(frame_count);
+        }
+
+        f_m_cnt = 0;
+        feature_index = -1;
+        for (auto &it_per_id : f_manager.feature)
+        {
+            it_per_id.used_num = it_per_id.feature_per_frame.size();
+            if (it_per_id.used_num < 4)
+                continue;
+ 
+            ++feature_index;
+
+            int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
+        
+            Vector3d pts_i = it_per_id.feature_per_frame[0].point;
+
+            for (auto &it_per_frame : it_per_id.feature_per_frame)
+            {
+                imu_j++;
+                if (imu_i != imu_j)
+                {
+                    Vector3d pts_j = it_per_frame.point;
+                    ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
+                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                    ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f_td, loss_function,
+                                                                                    vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]},
+                                                                                    vector<int>{2, 3, 4});
+                    marginalization_info_all_keyframes->addResidualBlockInfo(residual_block_info);
+                }
+
+                if(STEREO && it_per_frame.is_stereo)
+                {                
+                    Vector3d pts_j_right = it_per_frame.pointRight;
+                    if(imu_i != imu_j)
+                    {
+                        ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
+                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
+                                                                                        vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]},
+                                                                                        vector<int>{2, 3, 4, 5});
+                        marginalization_info_all_keyframes->addResidualBlockInfo(residual_block_info);
+                    }
+                    else
+                    {
+                        ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
+                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
+                                                                                        vector<double *>{para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]},
+                                                                                        vector<int>{0, 1, 2, 3});
+                        marginalization_info_all_keyframes->addResidualBlockInfo(residual_block_info);
+                    }
+               
+                }
+                f_m_cnt++;
+            }
+        }
 
         if (last_marginalization_info && last_marginalization_info->valid)
         {
@@ -1256,9 +1339,10 @@ void Estimator::optimization()
         ROS_DEBUG("pre marginalization %f ms", t_pre_margin.toc());
         
         TicToc t_margin_aux;
-        if (marginalization_info->marginalize_except_keyframes(keyframe_poses))
+        marginalization_info_all_keyframes->preMarginalize();
+        if (marginalization_info_all_keyframes->marginalize_except_keyframes(keyframe_poses))
         {
-            extract_nonlinear_factors(marginalization_info, keyframe_poses, keyframe_addr_to_idx);
+            extract_nonlinear_factors(marginalization_info_all_keyframes, keyframe_poses, keyframe_addr_to_idx);
             ++aux_count;
             aux_time += t_margin_aux.toc();
             printf("nonlinear factors extractions costs: %f \n", aux_time / aux_count);
