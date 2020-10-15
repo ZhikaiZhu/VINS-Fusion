@@ -1157,10 +1157,27 @@ void Estimator::optimization()
         if (last_marginalization_info && last_marginalization_info->valid)
         {
             // construct new marginlization_factor
+            vector<int> drop_set;
+            bool marg_flag = true;
+            for (int i = 0; i < static_cast<int>(last_marginalization_parameter_blocks.size()); i++)
+            {
+                for (int j = 0; j <= WINDOW_SIZE; j++)
+                {
+                    if (last_marginalization_parameter_blocks[i] == para_Pose[j])
+                    {
+                        marg_flag = false;
+                        break;
+                    }
+                }
+                if (marg_flag)
+                {
+                    drop_set.push_back(i);
+                }       
+            }
             MarginalizationFactor *marginalization_factor = new MarginalizationFactor(last_marginalization_info);
             ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(marginalization_factor, NULL,
                                                                            last_marginalization_parameter_blocks,
-                                                                           vector<int>{});
+                                                                           drop_set);
             marginalization_info_all_keyframes->addResidualBlockInfo(residual_block_info);
         }
         if(USE_IMU)
