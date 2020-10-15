@@ -114,6 +114,8 @@ public:
 
 	// loop information matrix
 	//Eigen::Matrix<double, 6, 6> loop_cov_inv;
+
+	// switch factor
 	double s;
 	void getSwitch(double& _s)
 	{

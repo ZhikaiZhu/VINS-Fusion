@@ -23,16 +23,7 @@ public:
 		Eigen::Vector3d P_j(parameters[1][0], parameters[1][1], parameters[1][2]);
     	Eigen::Quaterniond Q_j(parameters[1][6], parameters[1][3], parameters[1][4], parameters[1][5]);
 
-        double S_ij{parameters[2][0]};
-
-        if (S_ij > 1.0)
-        {
-            S_ij = 1.0;
-        }
-        else if (S_ij < 0.0)
-        {
-            S_ij = 0.0;
-        }
+		double S_ij{parameters[2][0]};
 
 		Eigen::Vector3d P_w_ij = P_j - P_i;
 

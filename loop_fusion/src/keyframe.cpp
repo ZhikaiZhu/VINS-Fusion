@@ -530,12 +530,7 @@ bool KeyFrame::findConnection(KeyFrame* old_kf)
 			J_2.block<3, 3>(3, 3) = -origin_vio_R.transpose() * PnP_R_old;
 			J_2.ldlt().solveInPlace(J_2_inv);
 
-			loop_cov_inv = J_2_inv.transpose() * J_1.transpose() * (pow(200.0 / 1.5, 2.0) * I) * J_1 * J_2_inv; 
-
-			std::cout << index << std::endl;
-			std::cout << std::endl;
-			std::cout << loop_cov_inv << std::endl;
-			std::cout << std::endl; */
+			loop_cov_inv = J_2_inv.transpose() * J_1.transpose() * (pow(200.0 / 1.5, 2.0) * I) * J_1 * J_2_inv; */
 
 	        return true;
 	    }

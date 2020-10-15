@@ -363,18 +363,7 @@ public:
   template <typename T>
   bool operator()(const T* s, const T* delta, T* s_plus_delta) const 
   {
-	  if (*s + *delta > T(1.0))
-	  {
-		  *s_plus_delta = T(1.0);
-	  }
-	  else if (*s + *delta < T(0.0))
-	  {
-		  *s_plus_delta = T(0.0);
-	  }
-	  else
-	  {
-		  *s_plus_delta = *s + *delta;
-	  }
+	  *s_plus_delta = *s + *delta;
 
       return true;
   }

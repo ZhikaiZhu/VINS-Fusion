@@ -71,6 +71,6 @@ pose_graph_save_path: "/home/spc/output/pose_graph/" # save and load path
 save_image: 1                   # save image in pose graph for visualization prupose; you can close this function by setting 0 
 
 #pose graph optimization parameters
-switch_init: 0.1
-switch_sqrt_info: 100.0
-loop_scale: 100.0
+switch_init: 1.0
+switch_sqrt_info: 300.0
+loop_scale: 1000.0

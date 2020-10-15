@@ -497,7 +497,7 @@ void PoseGraph::optimize4DoF()
             options.max_num_iterations = 25;
             ceres::Solver::Summary summary;
             ceres::LossFunction *loss_function;
-            loss_function = new ceres::HuberLoss(0.1);
+            loss_function = new ceres::HuberLoss(30.0);
             //loss_function = new ceres::CauchyLoss(1.0);
             // 指定Yaw角优化变量是如何进行迭代更新的
             //ceres::LocalParameterization* angle_local_parameterization = AngleLocalParameterization::Create();
@@ -524,8 +524,8 @@ void PoseGraph::optimize4DoF()
                 Quaterniond tmp_q;
                 Matrix3d tmp_r;
                 Vector3d tmp_t;
-                //(*it)->getVioPose(tmp_t, tmp_r);
-                (*it)->getPose(tmp_t, tmp_r);
+                (*it)->getVioPose(tmp_t, tmp_r);
+                //(*it)->getPose(tmp_t, tmp_r);
                 tmp_q = tmp_r;
                 double tmp_s;
                 (*it)->getSwitch(tmp_s);
@@ -596,6 +596,8 @@ void PoseGraph::optimize4DoF()
                 //if ((*it)->has_loop && start_loop_index == first_looped_index && end_loop_index == cur_index)
                 {
                     assert((*it)->loop_index >= first_looped_index);
+                    if ((*it)->s > 0.05)
+                    {
                     int connected_index = getKeyFrame((*it)->loop_index)->local_index;
                     //Vector3d euler_conncected = Utility::R2ypr(q_array[connected_index].toRotationMatrix());
                     Vector3d relative_t;
@@ -619,7 +621,9 @@ void PoseGraph::optimize4DoF()
                     problem.AddResidualBlock(cost_function, NULL, para_pose[connected_index], para_pose[i], para_switch[i]); 
                     ceres::CostFunction* switch_prior = SwitchPriorError::Create(1.0, SWITCH_SQRT_INFO);
                     problem.AddResidualBlock(switch_prior, NULL, para_switch[i]); 
-                
+                    problem.SetParameterLowerBound(para_switch[i], 0, 0);
+                    problem.SetParameterUpperBound(para_switch[i], 0, 1); 
+                    }
                 }
                 
                 if ((*it)->index == cur_index)
@@ -698,6 +702,7 @@ void PoseGraph::optimize4DoF()
             i = 0;
             std::cout << "The value of switchable factors are: " << std::endl;
             double s_to_zero = 0.0, s_to_one = 0.0, s_sum = 0.0;
+            //double max_time_stamp = 0.0, max_err = 0.0;
             for (it = keyframelist.begin(); it != keyframelist.end(); it++)
             {
                 if ((*it)->index < first_looped_index)
@@ -710,11 +715,25 @@ void PoseGraph::optimize4DoF()
                 tmp_q = Quaterniond(para_pose[i][6], para_pose[i][3], para_pose[i][4], para_pose[i][5]).normalized();
                 Matrix3d tmp_r = tmp_q.toRotationMatrix();
 
-                //double tmp_s{para_switch[i][0]};
-                //(*it)->updateSwitch(tmp_s); 
+                /*Eigen::Matrix3d R_vio;
+                Eigen::Vector3d t_vio;
+                Eigen::Quaterniond q_vio;
+                (*it)->getVioPose(t_vio, R_vio);
+                q_vio = R_vio;
+                Eigen::Matrix<double, 6, 1> error;
+                error.block<3, 1>(0, 0) = q_vio.inverse() * (tmp_t - t_vio);
+                error.block<3, 1>(3, 0) = (q_vio.inverse() * tmp_q).vec();
+                if (error.norm() > max_err)
+                {
+                    max_time_stamp = (*it)->time_stamp;
+                    max_err = error.norm();
+                } */
+
+                double tmp_s{para_switch[i][0]};
+                (*it)->updateSwitch(tmp_s); 
 
                 (*it)->updatePose(tmp_t, tmp_r);
-                
+                 
 
                 if ((*it)->has_loop)
                 {
@@ -737,6 +756,19 @@ void PoseGraph::optimize4DoF()
             }
             std::cout << std::endl;
             printf("The percentages of s closing to zero and one are: %f %f \n", s_to_zero / s_sum, s_to_one / s_sum);
+
+            /*std::cout << "the max error time stamp and value are: " << max_time_stamp << " " << max_err << std::endl;
+            for (auto i{0}; i < rel_pose_size; i++)
+            {
+                auto factor = rel_pose_factors[i];
+                if (!keyframemap_local.count(factor.Header_i)) continue;
+                if (!keyframemap_local.count(factor.Header_j)) continue;
+                if (factor.Header_i == max_time_stamp || factor.Header_j == max_time_stamp)
+                {
+                    std::cout << factor.cov_inv << std::endl;
+                    std::cout << std::endl;
+                }
+            } */
 
             Vector3d cur_t, vio_t;
             Matrix3d cur_r, vio_r;
