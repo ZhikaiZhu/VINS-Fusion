@@ -125,5 +125,8 @@ public:
 	{
 		s = _s;
 	}
+
+	// true loop or not
+	bool true_loop;
 };
 

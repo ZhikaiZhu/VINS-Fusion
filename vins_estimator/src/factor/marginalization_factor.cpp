@@ -216,6 +216,8 @@ bool MarginalizationInfo::marginalize_except_keyframes(std::vector<long> keyfram
         return false;
     }
 
+    //std::cout << "the number of m and n are: " << m_aux << " " << n_aux << std::endl;
+
     //通过上面的操作就会将所有的优化变量进行一个伪排序，待marg的优化变量的idx为0，其他的和起所在的位置相关
     TicToc t_summing;
     Eigen::MatrixXd A(pos, pos);

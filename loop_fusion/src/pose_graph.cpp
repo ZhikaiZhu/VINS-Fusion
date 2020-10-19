@@ -524,8 +524,8 @@ void PoseGraph::optimize4DoF()
                 Quaterniond tmp_q;
                 Matrix3d tmp_r;
                 Vector3d tmp_t;
-                (*it)->getVioPose(tmp_t, tmp_r);
-                //(*it)->getPose(tmp_t, tmp_r);
+                //(*it)->getVioPose(tmp_t, tmp_r);
+                (*it)->getPose(tmp_t, tmp_r);
                 tmp_q = tmp_r;
                 double tmp_s;
                 (*it)->getSwitch(tmp_s);
@@ -596,6 +596,11 @@ void PoseGraph::optimize4DoF()
                 //if ((*it)->has_loop && start_loop_index == first_looped_index && end_loop_index == cur_index)
                 {
                     assert((*it)->loop_index >= first_looped_index);
+                    if ((*it)->s < 0.05)
+                    {
+                        (*it)->true_loop = false;
+                    }
+
                     if ((*it)->s > 0.05)
                     {
                     int connected_index = getKeyFrame((*it)->loop_index)->local_index;
@@ -735,7 +740,7 @@ void PoseGraph::optimize4DoF()
                 (*it)->updatePose(tmp_t, tmp_r);
                  
 
-                if ((*it)->has_loop)
+                if ((*it)->has_loop && (*it)->true_loop)
                 {
                     if (para_switch[i][0] < 1e-3)
                     {
