@@ -1782,8 +1782,11 @@ void Estimator::addPrior()
 
     // change the ypr variables in information matrix from global to local
     jacobian.setZero();
+    Eigen::Matrix<double, 3, 3> rot;
+    rot.setZero();
+    rot(0, 0) = 1.0;
     jacobian.block<3, 3>(0, 0) = Eigen::Matrix<double, 3, 3>::Identity() * sqrt(cov_inv);
-    jacobian.block<3, 3>(3, 3) = sqrt(cov_inv) * Eigen::Matrix<double, 3, 3>::Identity() * Q.toRotationMatrix();
+    jacobian.block<3, 3>(3, 3) = sqrt(cov_inv) * rot * Q.toRotationMatrix();
     marginalization_info->linearized_jacobians = jacobian;
     marginalization_info->linearized_residuals = Eigen::Matrix<double, 6, 1>::Zero();
     
