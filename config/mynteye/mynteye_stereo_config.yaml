@@ -6,13 +6,13 @@ imu: 0
 num_of_cam: 2  
 
 imu_topic: "/mynteye/imu/data_raw"
-image0_topic: "/mynteye/left/image_raw"
-image1_topic: "/mynteye/right/image_raw"
+image0_topic: "/mynteye/left/image_mono"
+image1_topic: "/mynteye/right/image_mono"
 output_path: "/home/tong/output/"
 
 cam0_calib: "left_mei.yaml"
 cam1_calib: "right_mei.yaml"
-image_width: 752
+image_width: 640
 image_height: 480
    
 
