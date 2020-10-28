@@ -6,8 +6,8 @@ imu: 1
 num_of_cam: 2  
 
 imu_topic: "/mynteye/imu/data_raw"
-image0_topic: "/mynteye/left/image_color"
-image1_topic: "/mynteye/right/image_color"
+image0_topic: "/mynteye/left/image_mono"
+image1_topic: "/mynteye/right/image_mono"
 output_path: "/home/spc/output/"
 
 cam0_calib: "left_pinhole.yaml"

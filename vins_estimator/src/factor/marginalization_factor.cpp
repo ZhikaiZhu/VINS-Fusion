@@ -258,9 +258,10 @@ bool MarginalizationInfo::marginalize_except_keyframes(std::vector<long> keyfram
   
     //TODO
     Eigen::MatrixXd Amm_aux = 0.5 * (A.block(0, 0, m_aux, m_aux) + A.block(0, 0, m_aux, m_aux).transpose());
-    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes_aux(Amm_aux);
-    Eigen::MatrixXd Amm_inv_aux = saes_aux.eigenvectors() * Eigen::VectorXd((saes_aux.eigenvalues().array() > eps).select(saes_aux.eigenvalues().array().inverse(), 0)).asDiagonal() * saes_aux.eigenvectors().transpose();
+    //Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes_aux(Amm_aux);
+    //Eigen::MatrixXd Amm_inv_aux = saes_aux.eigenvectors() * Eigen::VectorXd((saes_aux.eigenvalues().array() > eps).select(saes_aux.eigenvalues().array().inverse(), 0)).asDiagonal() * saes_aux.eigenvectors().transpose();
     //printf("error1: %f\n", (Amm * Amm_inv - Eigen::MatrixXd::Identity(m, m)).sum());
+    Eigen::MatrixXd Amm_inv_aux = Amm_aux.ldlt().solve(Eigen::MatrixXd::Identity(m_aux, m_aux));
 
     Eigen::VectorXd bmm_aux = b.segment(0, m_aux);
     Eigen::MatrixXd Amr_aux = A.block(0, m_aux, m_aux, n_aux);
