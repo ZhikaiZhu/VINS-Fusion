@@ -205,4 +205,6 @@ class Estimator
     double whole_time = 0.0;
     int aux_count = 0;
     double aux_time = 0.0;
+    int optim_count = 0;
+    double optim_time = 0.0;
 };

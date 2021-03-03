@@ -1011,7 +1011,7 @@ bool Estimator::failureDetection()
 
 void Estimator::optimization()
 {
-    TicToc t_whole, t_prepare;
+    TicToc t_whole, t_prepare, t_optimazition;
     vector2double();
 
     ceres::Problem problem;
@@ -1140,6 +1140,10 @@ void Estimator::optimization()
 
     double2vector();
     //printf("frame_count: %d \n", frame_count);
+
+    ++optim_count;
+    optim_time += t_optimazition.toc();
+    printf("Time for optimization: %f \n", optim_time / optim_count);
 
     if(frame_count < WINDOW_SIZE)
         return;
